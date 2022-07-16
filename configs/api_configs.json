@@ -1,0 +1,6 @@
+{
+    "api_port": 1234,
+    "logs_dir": "./api_logs",
+    "rows_per_log": 1000,
+    "max_logs_retained": 30
+}
