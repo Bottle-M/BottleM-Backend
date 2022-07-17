@@ -3,6 +3,7 @@ const httpServer = require('http');
 const configs = require('./basic/config-box');
 const outputer = require('./basic/output');
 const apiConfigs = configs['apiConfigs'];
+const router = require('./api/router');
 
 let port = apiConfigs['api_port']; // 获取配置的端口号
 httpServer.createServer(function (req, res) {
@@ -15,6 +16,8 @@ httpServer.createServer(function (req, res) {
     console.log(reqMethod);
     // 设定返回头
     res.writeHead(200, { 'Content-Type': 'application/json' });
+    // 路由转交任务
+    router(reqPath, reqParams, reqMethod);
     res.end('Hello World!');
 }).listen(port, () => {
     // 监听指定端口

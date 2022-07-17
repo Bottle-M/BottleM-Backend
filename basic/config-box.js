@@ -4,9 +4,20 @@ const chalk = require('chalk');
 const path = require('path');
 const jsonReader = require(path.join(__dirname, './json-reader'));
 
-// 同步配置读取
+/**
+ * 同步读取配置文件
+ * @param {*} configName 配置文件名 
+ * @returns 返回配置文件内容
+ */
 function configReader(configName) {
-    return jsonReader.sc(`./configs/${configName}`);
+    let configFile = jsonReader.sc(`./configs/${configName}`);
+    if (!configFile) {
+        // 这里输出错误警告要单独写
+        console.log(chalk.red(`[ERROR] Config file: ${configName}.json read failed!`));
+        // 配置肯定是必须要读取到的
+        process.exit(1); // 退出程序
+    }
+    return configFile;
 }
 
 // 读取API主配置
