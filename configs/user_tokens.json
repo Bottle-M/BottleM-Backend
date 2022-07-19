@@ -1,0 +1,11 @@
+{
+    "tokens": {
+        "moderator1": "9539D2_3fed62be21^c%12B6d1b4Db87355"
+    },
+    "permissions": {
+        "moderator1": [
+            "server.*",
+            "backend.*"
+        ]
+    }
+}

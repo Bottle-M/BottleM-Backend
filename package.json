@@ -23,6 +23,7 @@
   "homepage": "https://github.com/SomeBottle/BottleM-Backend#readme",
   "dependencies": {
     "chalk": "^4.1.2",
-    "tencentcloud-sdk-nodejs-cvm": "^4.0.381"
+    "tencentcloud-sdk-nodejs-cvm": "^4.0.381",
+    "ws": "^8.8.1"
   }
 }

@@ -23,6 +23,9 @@ function configReader(configName) {
 // 读取API主配置
 const apiConfigs = configReader('api_configs');
 
+// 读取用户token主配置
+const tokenConfigs = configReader('user_tokens');
+
 /**
  * 读取某个配置文件
  * @param {*} configName 配置文件名
@@ -30,6 +33,7 @@ const apiConfigs = configReader('api_configs');
  */
 module.exports = {
     apiConfigs: apiConfigs, // API主配置
+    tokenConfigs: tokenConfigs,
     sc: configReader,
     asc: async function (configName) {
         return jsonReader.sc(`./configs/${configName}`).then(apiConfig => {

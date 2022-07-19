@@ -1,0 +1,33 @@
+/server/normal 正常节点
+    - /launch 开启
+
+/server/maintenance 维护节点（部署后不会启动Minecraft服务器）
+    - /launch 开启
+    - /stop 关闭（软）
+    - /kill 关闭（硬）
+    - /pem 获得本次服务器登入私匙
+    - /revive 清除当前错误，继续运行
+
+/server/command 命令节点
+    - /send 发送命令
+
+/server/logs 服务器日志查看节点
+    - /knock 开始在websocket连接中传输日志
+
+/server/query 查询节点
+    - /mc 查询Minecraft服务器状态
+    - /backend 查询后端服务状态
+
+/backend/statistics 统计节点
+    - /cost 查询服务器费用
+    - /launch 启动情况
+
+/backend/token 临时api请求token生成的节点
+    - /generate 生成游客访问token
+
+> 返回数据中status为0代表异步处理，为1则代表成功，为-1代表失败
+
+提示信息：
+Invalid Request - 无效的请求
+Invalid Path - 无效的请求路径
+Lack of Valid Action - 缺少有效的请求参数?act
