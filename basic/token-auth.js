@@ -3,6 +3,13 @@
 const path = require('path');
 const configs = require(path.join(__dirname, './config-box'));
 
+// 内存中要储存一些临时token，供游客使用
+configs['temporary_tokens'] = new Object();
+// 记录临时token的过期时间戳
+configs['temporary_expire'] = new Object();
+// 记录临时token的数量
+configs['temporary_num'] = 0;
+
 /**
  * 检验token是否有权限访问
  * @param {*} token token字符串 
@@ -24,9 +31,10 @@ module.exports = function (token, reqPath) {
     } else {
         let permissions = tokenConfigs['permissions'][target]; // 获取权限列表
         for (let i = 0, len = permissions.length; i < len; i++) {
-            let nodes = permissions[i].split('.'), // 比如server.*
+            let nodes = permissions[i].split('.'),
+                // 比如server.*，则nodes为['server', '*'],通配符只能放在末尾
                 challenge = nodes.every((node, ind) => {
-                    return (node === '*' || node === reqPath[ind]);
+                    return (node === '*' || !reqPath[ind] || node === reqPath[ind]);
                 });
             if (challenge) {
                 return true;

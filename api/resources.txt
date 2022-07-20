@@ -25,9 +25,11 @@
 /backend/token 临时api请求token生成的节点
     - /generate 生成游客访问token
 
-> 返回数据中status为0代表异步处理，为1则代表成功，为-1代表失败
+> 返回数据中code为0代表异步处理，为1则代表成功，为-1代表失败
 
 提示信息：
 Invalid Request - 无效的请求
 Invalid Path - 无效的请求路径
 Lack of Valid Action - 缺少有效的请求参数?act
+Non-existent Node - 访问了不存在的操作节点，比如/server/iehfihfi
+Permission Denied - 访问了错误的路径或者token权限不够

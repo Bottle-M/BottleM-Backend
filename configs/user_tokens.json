@@ -4,7 +4,8 @@
     },
     "permissions": {
         "moderator1": [
-            "server.*",
+            "server.maintenance.kill",
+            "server.normal.launch",
             "backend.*"
         ]
     }

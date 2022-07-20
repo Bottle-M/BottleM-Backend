@@ -143,5 +143,7 @@ dist
 .svelte-kit
 
 api_logs/*
+server_data/*
+
 
 # End of https://www.toptal.com/developers/gitignore/api/node

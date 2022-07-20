@@ -1,6 +1,7 @@
 // HTTP API路由
 'use strict';
-
+const path = require('path');
+const server = require(path.join(__dirname, './server.js'));
 
 /**
  * 针对backend操作进行分发
@@ -17,13 +18,13 @@ function backendRouter(resultData, reqPath, reqParams, reqMethod) {
 
 /**
  * 针对server操作进行分发
- * @param {*} resultData 返回数据
+ * @param {*} resultObj 返回数据
  * @param {*} reqPath 在server下的请求路径
  * @param {*} reqAction 请求的操作
  * @param {*} reqMethod 请求的方法（小写，get/post/put...）
  * @returns 返回一个对象，包含了请求的结果
  */
-function serverRouter(resultData, reqPath, reqAction, reqMethod) {
+function serverRouter(resultObj, reqPath, reqAction, reqMethod) {
     let action = reqAction || '';
     outer:
     switch (reqPath) {
@@ -41,39 +42,46 @@ function serverRouter(resultData, reqPath, reqAction, reqMethod) {
                     break;
             }
         case 'normal': // /server/normal
-            if (action == 'launch') {
-
+            if (action == 'launch') { // 开始部署服务器
+                resultObj = server.launch(resultObj);
+                break;
+            } else {
+                resultObj.msg = 'Lack of Valid Action';
+                resultObj.status = 400;
                 break;
             }
         default:
-            resultData.msg = 'Lack of Valid Action';
+            resultObj.msg = 'Non-existent Node';
+            resultObj.status = 400;
             break;
     };
-    return resultData;
+    return resultObj;
 }
 
 /**
  * API路由
  * @param {Object} reqObj 包含请求数据的对象 
- * @param {Object} resultData 返回数据的对象
+ * @param {Object} resultObj 返回数据的对象
  * @return 返回一个对象，包含了请求的结果
  */
-module.exports = function (reqObj, resultData) {
-    let { path, params, method } = reqObj;
-    if (path[1]) {
-        switch (path[0]) {
+module.exports = function (reqObj, resultObj) {
+    let { rPath, params, method } = reqObj;
+    if (rPath[1]) {
+        switch (rPath[0]) {
             case 'server':
-                resultData = serverRouter(resultData, path[1], path[2], method);
+                resultObj = serverRouter(resultObj, rPath[1], rPath[2], method);
                 break;
             case 'backend':
-                resultData = backendRouter(resultData, path[1], params, method);
+                resultObj = backendRouter(resultObj, rPath[1], params, method);
                 break;
             default:
-                resultData.msg = 'Invalid Request';
+                resultObj.msg = 'Invalid Request';
+                resultObj.status = 400;
                 break;
         }
     } else {
-        resultData.msg = 'Invalid Path';
+        resultObj.msg = 'Invalid Path';
+        resultObj.status = 400;
     }
-    return resultData;
+    return resultObj;
 };

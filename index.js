@@ -14,31 +14,30 @@ httpServer.createServer(function (req, res) {
         reqMethod = req.method.toLowerCase(),// 获得请求方法
         authStr = req.headers['authorization'] || '', // 获得请求头的authorization
         authToken = authStr.replace(/^(Bearer\s+?)(\S+)$/i, (match, p1, p2) => p2), // 把token提取出来
-        resultStatus = 200, // 返回状态码
         resultObj = { // 返回结果
             data: new Object(),
-            status: -1, // 0代表异步处理，为1则代表成功，为-1代表失败
-            msg: ''
+            code: -1, // 0代表异步处理，为1则代表成功，为-1代表失败
+            msg: '',
+            status: 200 // 返回状态码
         };
     // 将请求路径进行分割
     reqPath = reqPath.split('/').filter(item => item !== '');
     if (!authToken) { // 没有token
         resultObj.msg = 'Unauthorized';
-        resultStatus = 401;
+        resultObj.status = 401;
     } else if (auther(authToken, reqPath)) { // 鉴权通过
-        // 设定返回头
-        res.writeHead(200, { 'Content-Type': 'application/json' });
         // 路由转交任务
         resultObj = router({
-            path: reqPath,
+            rPath: reqPath,
             params: reqParams,
             method: reqMethod
         }, resultObj);
     } else {
         resultObj.msg = 'Permission Denied';
-        resultStatus = 403;
+        resultObj.status = 403;
     }
-    res.writeHead(resultStatus, { 'Content-Type': 'application/json' });
+    res.writeHead(resultObj.status, { 'Content-Type': 'application/json' });
+    delete resultObj['status']; // 移除status字段
     res.end(JSON.stringify(resultObj));
 }).listen(port, () => {
     // 监听指定端口
