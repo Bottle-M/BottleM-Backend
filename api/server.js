@@ -4,6 +4,7 @@ const chalk = require('chalk');
 const { createCipheriv } = require('crypto');
 const { promises: fs, statSync, writeFileSync, mkdirSync } = require('fs');
 const path = require('path');
+const instance = require(path.join(__dirname, './instance'));
 // 服务器临时文件存放目录
 const serverTemp = 'server_data';
 
@@ -33,10 +34,15 @@ function elasticWrite(filePath, data) {
 }
 
 async function serverDeploy() {
-    
+
 }
 
 module.exports = {
+    /**
+     * 部署/启动服务器（会检查服务器是否已经启动）
+     * @param {*} resultObj 返回数据对象
+     * @returns 装有返回数据的对象
+     */
     launch: function (resultObj) {
         // launch.lock这个文件存在则代表服务器已经部署
         let lockFile = path.join(__dirname, `../${serverTemp}/launch.lock`);
@@ -47,6 +53,7 @@ module.exports = {
         } catch (e) {
             // 创建launch.lock文件
             elasticWrite(lockFile, `Launched at ${new Date().toISOString()}`);
+            serverDeploy(); // 交由异步函数处理
             resultObj.msg = 'Starting to deploy the server!';
             resultObj.code = 0; // 0 代表交由异步处理
         }
