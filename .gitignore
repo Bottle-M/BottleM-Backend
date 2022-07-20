@@ -144,7 +144,7 @@ dist
 
 api_logs/*
 server_data/*
-*/secret_configs.json
+configs/secret_configs.json
 
 
 # End of https://www.toptal.com/developers/gitignore/api/node
