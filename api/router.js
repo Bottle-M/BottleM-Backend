@@ -1,7 +1,6 @@
 // HTTP API路由
 'use strict';
-const path = require('path');
-const server = require(path.join(__dirname, './server.js'));
+const server = require('./server.js');
 
 /**
  * 针对backend操作进行分发

@@ -6,11 +6,12 @@ const path = require('path');
 module.exports = {
     /**
     * 小文件JSON读取（异步）
-    * @param {*} jPath 文件路径
+    * @param {*} jPath 文件相对路径(以index.js所在目录为基准)
     * @returns Promise对象
+    * @note 如果文件路径带.json后缀，路径写法和writeFile一致
     */
     asc: async function (jPath) {
-        let fileTarget = path.join(__dirname, '..', jPath) + '.json'; // 构建待读取文件路径
+        let fileTarget = jPath.includes('.json') ? jPath : (path.join(__dirname, '..', jPath) + '.json'); // 构建待读取文件路径
         return fs.readFile(fileTarget, {
             encoding: 'utf-8'
         }).then(data => {
@@ -20,11 +21,12 @@ module.exports = {
     },
     /**
      * 小文件JSON读取（同步）
-     * @param {*} jPath 文件路径
+     * @param {*} jPath 文件相对路径(以index.js所在目录为基准)
      * @returns 文件内容，如果失败了返回null
+     * @note 如果文件路径带.json后缀，路径写法和writeFile一致
      */
     sc: function (jPath) {
-        let fileTarget = path.join(__dirname, '..', jPath) + '.json'; // 构建待读取文件路径
+        let fileTarget = jPath.includes('.json') ? jPath : (path.join(__dirname, '..', jPath) + '.json'); // 构建待读取文件路径
         try {
             return JSON.parse(readFileSync(fileTarget, {
                 encoding: 'utf-8'

@@ -4,7 +4,7 @@ const chalk = require('chalk');
 const { promises: fs, statSync, mkdirSync, writeFileSync } = require('fs');
 const path = require('path');
 // 载入配置
-const configs = require(path.join(__dirname, './config-box'));
+const configs = require('./config-box');
 const apiConfigs = configs['apiConfigs'];
 // 从配置中获得日志绝对目录（默认为./api_logs）
 const logDir = path.join(__dirname, '..', apiConfigs['logs_dir'] || './api_logs');
@@ -128,7 +128,7 @@ function writeLogs(log) {
  * 向控制台输出消息
  * @param {*} level 消息等级
  * @param {*} msg 消息内容
- * @param {*} writeInLog 是否写入日志
+ * @param {*} writeInLog 是否写入日志（默认true）
  * @note 1:普通提示 2:警告 3:错误
  */
 function output(level, msg, writeInLog = true) {

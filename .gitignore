@@ -148,4 +148,6 @@ server_data/*
 
 configs/secret_configs.json
 
+backend_status.json
+
 # End of https://www.toptal.com/developers/gitignore/api/node

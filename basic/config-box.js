@@ -2,7 +2,7 @@
 'use strict';
 const chalk = require('chalk');
 const path = require('path');
-const jsonReader = require(path.join(__dirname, './json-reader'));
+const jsonReader = require('./json-reader');
 
 /**
  * 同步读取配置文件
@@ -29,6 +29,7 @@ const tokenConfigs = configReader('user_tokens');
 // 读取secret
 const secretConfigs = configReader('secret_configs');
 
+
 /**
  * 读取某个配置文件
  * @param {*} configName 配置文件名
@@ -38,7 +39,18 @@ module.exports = {
     apiConfigs: apiConfigs, // API主配置
     tokenConfigs: tokenConfigs,
     secretConfigs: secretConfigs,
+    backendStatusPath: path.join(__dirname, '../backend_status.json'), // backend-status文件名
+    initialBackendStatus: {
+        status_msg: 'Everything\'s Fine', // 状态信息
+        status_code: 2000, // 状态代码
+        last_err: '' // 上一次错误的信息
+    }, // 最初的backend-status文件内容
     sc: configReader,
+    /**
+     * 异步读取配置文件
+     * @param {String} configName 读取的配置文件名
+     * @returns {Promise} Promise对象
+     */
     asc: async function (configName) {
         return jsonReader.sc(`./configs/${configName}`).then(apiConfig => {
             return Promise.resolve(apiConfig); // 返回解析的数据

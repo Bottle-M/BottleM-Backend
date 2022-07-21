@@ -3,8 +3,19 @@ const httpServer = require('http');
 const configs = require('./basic/config-box');
 const outputer = require('./basic/output');
 const apiConfigs = configs['apiConfigs'];
+const { statSync, writeFileSync } = require('fs');
 const router = require('./api/router');
 const auther = require('./basic/token-auth');
+
+// 检查backend_status状态记录文件是否存在
+try {
+    statSync(configs['backendStatusPath']);
+} catch (e) {
+    // 不存在就创建一个
+    writeFileSync(configs['backendStatusPath'], JSON.stringify(configs['initialBackendStatus']), {
+        encoding: 'utf8'
+    });
+}
 
 let port = apiConfigs['api_port']; // 获取配置的端口号
 httpServer.createServer(function (req, res) {

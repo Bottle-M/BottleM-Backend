@@ -1,7 +1,7 @@
 // token鉴权模块
 'use strict';
 const path = require('path');
-const configs = require(path.join(__dirname, './config-box'));
+const configs = require('./config-box');
 
 // 内存中要储存一些临时token，供游客使用
 configs['temporary_tokens'] = new Object();
