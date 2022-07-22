@@ -16,32 +16,36 @@ const lockFile = path.join(__dirname, `../${serverTemp}/launch.lock`);
  * 设置backend_status状态文件
  * @param {String|Array} keys 设置的键（可以是键组成的数组）
  * @param {String|Array} values 设置的内容（可以是内容组成的数组）
+ * @returns {Promise}
  */
 function updateBackendStatus(keys, values) {
     if (!(keys instanceof Array)) keys = [keys];
     if (!(values instanceof Array)) values = [values];
-    jsonReader.asc(configs.backendStatusPath).then(parsed => {
+    return jsonReader.asc(configs.backendStatusPath).then(parsed => {
         for (let i = 0, len = keys.length; i < len; i++) {
             parsed[keys[i]] = values[i];
         }
         return fs.writeFile(configs.backendStatusPath, JSON.stringify(parsed));
     }).catch(err => {
         // 设置状态失败，写入日志
-        outputer(2, 'Failed to set status: ' + err);
+        let errMsg = 'Failed to set status: ' + err;
+        outputer(2, errMsg);
+        return Promise.reject(errMsg);
     });
 }
 
 /**
  * 根据状态代号设置状态信息
  * @param {Number} code 
+ * @returns {Promise}
  */
 function setStatus(code) {
     // 获得对应状态码的配置
     let corresponding = configs['statusConfigs'][code],
         msg = corresponding['msg'],
         inform = corresponding['inform'];
-    updateBackendStatus(['status_msg', 'status_code'], [msg, code]);
     outputer(1, msg);
+    return updateBackendStatus(['status_msg', 'status_code'], [msg, code]);
 }
 
 /**
@@ -56,11 +60,10 @@ function errorHandler(msg) {
         let currentCode = Number(parsed['status_code']),
             topDigitDiff = Math.floor(currentCode / 1000) - 1,// 代号最高位数字差
             errCode = currentCode - topDigitDiff * 1000;// 减去最高位数字差
-        if (errCode === 1001) {
+        // 特殊处理2000对应的错误: 1000错误代表没有合适的实例
+        if (errCode === 1000) {
             // 输出错误，记入日志，等级：警告
             outputer(2, errMsg);
-            // 特殊处理2001对应的错误, 1001错误代表没有合适的实例
-            setStatus(2000);
             // 删除部署锁定文件
             elasticDel(lockFile);
         } else {
@@ -70,7 +73,7 @@ function errorHandler(msg) {
             updateBackendStatus(['status_msg', 'status_code', 'last_err', 'last_err_time'], [errMsg, errCode, errMsg, errTime]);
         }
     }).catch(err => {
-        outputer(3, `Error occurred while handling ERROR:${e}`, false);
+        outputer(3, `Error occurred while handling ERROR:${err}`, false);
     });
 }
 
@@ -125,8 +128,11 @@ function serverDeploy() {
             return formerWeight - latterWeight;
         });
         if (types.length <= 0) {
-            // 没有可用的实例
-            return Promise.reject('No available instance (that meet the specified configuration)');
+            // 设置状态码为2000，触发错误1000
+            return setStatus(2000).then(res => {
+                // 没有可用的实例
+                return Promise.reject('No available instance (that meet the specified configuration)');
+            });
         }
         console.log(types);
     });
@@ -148,8 +154,8 @@ module.exports = {
             // 创建launch.lock文件
             elasticWrite(lockFile, `Launched at ${new Date().toISOString()}`);
             serverDeploy() // 交由异步函数处理
-                .catch(e => {
-                    errorHandler(e);
+                .catch(err => {
+                    errorHandler(err);
                 });
             resultObj.msg = 'Starting to deploy the server!';
             resultObj.code = 0; // 0 代表交由异步处理
