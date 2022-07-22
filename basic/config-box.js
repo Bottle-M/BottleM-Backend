@@ -29,6 +29,10 @@ const tokenConfigs = configReader('user_tokens');
 // 读取secret
 const secretConfigs = configReader('secret_configs');
 
+// 读取状态码信息配置
+
+const statusConfigs = configReader('status_codes');
+
 
 /**
  * 读取某个配置文件
@@ -39,11 +43,13 @@ module.exports = {
     apiConfigs: apiConfigs, // API主配置
     tokenConfigs: tokenConfigs,
     secretConfigs: secretConfigs,
+    statusConfigs: statusConfigs,
     backendStatusPath: path.join(__dirname, '../backend_status.json'), // backend-status文件名
     initialBackendStatus: {
         status_msg: 'Everything\'s Fine', // 状态信息
         status_code: 2000, // 状态代码
-        last_err: '' // 上一次错误的信息
+        last_err: '', // 上一次错误的信息
+        last_err_time: null // 上一次错误的时间
     }, // 最初的backend-status文件内容
     sc: configReader,
     /**

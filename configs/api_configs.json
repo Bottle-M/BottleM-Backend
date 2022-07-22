@@ -6,6 +6,10 @@
     "max_temp_tokens_num": 200,
     "qcloud": {
         "region": "ap-chengdu",
-        "instance_family_regex": "^SA?\\d$"
+        "instance_family_regex": "^SA?\\d$",
+        "instance_cpu": 2,
+        "instance_memory": 4,
+        "instance_bandwidth": 1,
+        "hour_price_range": [0, 0.2]
     }
 }

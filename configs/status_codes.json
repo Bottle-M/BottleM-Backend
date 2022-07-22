@@ -1,0 +1,10 @@
+{
+    "2000": {
+        "msg": "Idling...",
+        "inform": false
+    },
+    "2001": {
+        "msg": "Comparing Instances...",
+        "inform": false
+    }
+}
