@@ -4,7 +4,7 @@ const chalk = require('chalk');
 const { promises: fs, statSync, writeFileSync, mkdirSync, rmSync } = require('fs');
 const path = require('path');
 const configs = require('../basic/config-box');
-const instance = require('./qcloud');
+const cloud = require('./qcloud');
 const outputer = require('../basic/output');
 const jsonReader = require('../basic/json-reader');
 // 服务器临时文件存放目录
@@ -120,23 +120,27 @@ function elasticWrite(filePath, data) {
  */
 function serverDeploy() {
     setStatus(2001); // 开始比价
-    return instance.filterInsType().then(types => {
-        types.sort((former, latter) => { // 根据价格、内网带宽进行排序
+    return cloud.filterInsType().then(insConfigs => {
+        insConfigs.sort((former, latter) => { // 根据价格、内网带宽进行排序
             // 计算权重数：先把折扣价*1000，减去内网带宽*20。数值越小，权重越大
             let formerWeight = former['Price']['UnitPriceDiscount'] * 1000 - former['InstanceBandwidth'] * 20,
                 latterWeight = latter['Price']['UnitPriceDiscount'] * 1000 - latter['InstanceBandwidth'] * 20;
             return formerWeight - latterWeight;
         });
-        if (types.length <= 0) {
+        if (insConfigs.length <= 0) {
             // 设置状态码为2000，触发错误1000
             return setStatus(2000).then(res => {
                 // 没有可用的实例
                 return Promise.reject('No available instance (that meet the specified configuration)');
-            });
+            }); // 同样是rejected留给外面处理
         }
-        console.log(types);
-    });
-    // rejected留给外面处理
+        return Promise.resolve(insConfigs);
+        // rejected留给外面处理
+    }).then(insConfigs => {
+        cloud.generateKey().then(keyObj=>{
+            
+        });
+    })
 }
 
 module.exports = {

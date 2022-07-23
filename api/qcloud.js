@@ -30,7 +30,6 @@ const client = new CvmClient(clientConfig);
  * @returns {Promise<void>} 返回Promise对象
  */
 function filterInsType() {
-    // 获得正则表达式
     let params = {
         "Filters": [
             {
@@ -42,6 +41,7 @@ function filterInsType() {
             }
         ]
     },
+        // 获得正则表达式
         regex = new RegExp(qcloudConfigs['instance_family_regex']),
         cpuSpecified = qcloudConfigs['instance_cpu'],
         memSpecified = qcloudConfigs['instance_memory'],
@@ -83,7 +83,53 @@ function filterInsType() {
     );
 }
 
+/**
+ * 生成实例登录密匙对
+ * @returns {Promise} 返回Promise对象
+ * @note resolve一个对象，包含两个属性：privateKey, keyId
+ */
+function generateKey() {
+    let params = {
+        "KeyName": "for_minecraft",
+        "ProjectId": qcloudConfigs['project_id']
+    };
+    return client.CreateKeyPair(params).then(
+        (data) => {
+            return Promise.resolve({
+                privateKey: data['KeyPair']['PrivateKey'],
+                keyId: data['KeyPair']['KeyId']
+            });
+        },
+        (err) => {
+            return Promise.reject(`Error occurred while generating Key Pair: ${err}`);
+        }
+    );
+}
+
+/**
+ * 删除实例登录密匙对
+ * @param {*} keyId 密匙对ID
+ * @returns {Promise} 返回Promise对象
+ */
+function deleteKey(keyId) {
+    let params = {
+        "KeyIds": [
+            keyId
+        ]
+    };
+    return client.DeleteKeyPairs(params).then(
+        (data) => {
+            return Promise.resolve(data);
+        },
+        (err) => {
+            return Promise.reject(`Error occurred while deleting Key Pair: ${err}`);
+        }
+    );
+}
+
 
 module.exports = {
-    filterInsType: filterInsType
+    filterInsType: filterInsType,
+    generateKey: generateKey,
+    deleteKey: deleteKey
 }

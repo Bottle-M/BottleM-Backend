@@ -10,6 +10,20 @@
         "instance_cpu": 2,
         "instance_memory": 4,
         "instance_bandwidth": 1,
-        "hour_price_range": [0, 0.2]
+        "hour_price_range": [0, 0.2],
+        "project_id":1269603,
+        "image_id":"img-bhz48tfr",
+        "system_disk":{
+            "disk_type":"CLOUD_SSD",
+            "disk_size":50
+        },
+        "vpc":{
+            "vpc_id":"DEFAULT",
+            "subnet_id":"DEFAULT"
+        },
+        "max_bandwidth_out":5,
+        "security_group_id":"sg-f2auf7fp",
+        "host_name":"bottlem",
+        "max_spot_price":0.3
     }
 }

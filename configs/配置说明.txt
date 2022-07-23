@@ -11,8 +11,26 @@ api_configs:
         - instance_memory 机型内存大小（单位：GB）
         - instance_bandwidth 机型内网带宽最小值（单位：Gbps）
         - hour_price_range 每小时价格区间，比如[0,0.3]（单位：元），这里是和折扣后价格进行对比
+        - project_id 项目ID（在腾讯云控制台右上角头像处可以看到“项目管理”）
+        - image_id 实例的启动镜像ID（建议是自制镜像）
+        - system_disk（可以留null，即为默认分配系统盘）系统盘配置
+            - disk_type 系统盘类型（详见腾讯云文档）
+            - disk_size 系统盘大小（单位：GB）
+        - vpc 私有网络配置（因为有的实例并不支持基础网络，这里务必使用私有网络）
+            - vpc_id 私有网络ID
+            - subnet_id 子网ID
+            # 全部留DEFAULT，即为默认私网
+        - max_bandwidth_out 最大出带宽（单位：Mbps）
+        - security_group_id 安全组ID
+        - host_name 主机名
+        - max_spot_price 最大竞价出价（单位：元）
 
 status_codes:
     每一项中：
         msg - 状态信息
         inform - 是否通知群内成员（需要对接机器人api）
+
+
+
+腾讯云API需要的权限：
+CVM查询创建退回,密匙创建/销毁相关
