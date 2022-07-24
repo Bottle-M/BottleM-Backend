@@ -22,7 +22,7 @@
             "subnet_id":"DEFAULT"
         },
         "max_bandwidth_out":5,
-        "security_group_id":"sg-f2auf7fp",
+        "security_group_id":"sg-azrr4xvr",
         "host_name":"bottlem",
         "max_spot_price":0.3
     }

@@ -4,6 +4,7 @@ const qcloudCvm = require('tencentcloud-sdk-nodejs-cvm');
 const CvmClient = qcloudCvm.cvm.v20170312.Client;
 const path = require('path');
 const configs = require('../basic/config-box');
+const outputer = require('../basic/output');
 // 设置EndPoint
 const cvmEndPoint = 'cvm.tencentcloudapi.com';
 // 获得除了secret之外的配置
@@ -90,7 +91,7 @@ function filterInsType() {
  */
 function generateKey() {
     let params = {
-        "KeyName": "for_minecraft",
+        "KeyName": `for_minecraft_${Math.round(Math.random() * 100)}`,
         "ProjectId": qcloudConfigs['project_id']
     };
     return client.CreateKeyPair(params).then(
@@ -127,9 +128,81 @@ function deleteKey(keyId) {
     );
 }
 
+/**
+ * 创建实例（登陆方式：密匙对）
+ * @param {Array} insConfigs 实例配置数组，由filterInsType得来
+ * @param {String} keyId 密匙对ID
+ * @returns {Promise} 返回Promise对象
+ * @note 创建实例时会从insConfigs最后一个配置开始尝试，直到创建实例成功为止。当insConfigs为空数组时，创建实例失败
+ */
+function createInstance(insConfigs, keyId) {
+    if (insConfigs.length == 0) {
+        // 所有配置文件都不能用，创建实例大失败！
+        return Promise.reject('Unable to Create Instance due to invalid configs.');
+    }
+    let currentConfig = insConfigs.pop(),
+        params = {
+            "InstanceChargeType": "SPOTPAID",
+            "Placement": {
+                "Zone": currentConfig['Zone'],
+                "ProjectId": qcloudConfigs['project_id']
+            },
+            "InstanceType": currentConfig['InstanceType'],
+            "ImageId": qcloudConfigs['image_id'],
+            "SystemDisk": {
+                "DiskType": qcloudConfigs['system_disk']['disk_type'],
+                "DiskSize": qcloudConfigs['system_disk']['disk_size']
+            },
+            "VirtualPrivateCloud": {
+                "VpcId": qcloudConfigs['vpc']['vpc_id'],
+                "SubnetId": qcloudConfigs['vpc']['subnet_id']
+            },
+            "InternetAccessible": {
+                "InternetChargeType": "TRAFFIC_POSTPAID_BY_HOUR",
+                "InternetMaxBandwidthOut": qcloudConfigs['max_bandwidth_out'],
+                "PublicIpAssigned": true
+            },
+            "InstanceName": "Minecraft",
+            "LoginSettings": {
+                "KeyIds": [
+                    keyId
+                ]
+            },
+            "SecurityGroupIds": [
+                qcloudConfigs['security_group_id']
+            ],
+            "HostName": qcloudConfigs['host_name'],
+            "InstanceMarketOptions": {
+                "MarketType": "spot",
+                "SpotOptions": {
+                    "MaxPrice": qcloudConfigs['max_spot_price'].toString(), // 这里要求的竟然是字符串类型
+                    "SpotInstanceType": "one-time"
+                }
+            },
+            "DryRun": true, // 测试用
+            "DisableApiTermination": false // 允许API销毁实例
+        };
+    return client.RunInstances(params).then(
+        (data) => {
+            let instances = data['InstanceIdSet'];
+            if (!instances[0]) {
+                console.log(`[DEBUG]${data}`);
+            } else {
+                // 返回创建的实例的ID
+                return Promise.resolve(instances[0]);
+            }
+        },
+        (err) => {
+            // 无法创建实例就递归，继续尝试下一个配置
+            outputer(2, `Error occurred while creating instance: ${err}, retrying...`);
+            return createInstance(insConfigs, keyId);
+        }
+    );
+}
 
 module.exports = {
     filterInsType: filterInsType,
     generateKey: generateKey,
-    deleteKey: deleteKey
+    deleteKey: deleteKey,
+    createInstance: createInstance
 }

@@ -10,7 +10,7 @@ api_configs:
         - instance_cpu 机型CPU核数
         - instance_memory 机型内存大小（单位：GB）
         - instance_bandwidth 机型内网带宽最小值（单位：Gbps）
-        - hour_price_range 每小时价格区间，比如[0,0.3]（单位：元），这里是和折扣后价格进行对比
+        - hour_price_range 每小时价格区间，比如[0,0.3]（单位：元），这里是和折扣后价格进行对比。注意：这个不包含带宽，磁盘等费用
         - project_id 项目ID（在腾讯云控制台右上角头像处可以看到“项目管理”）
         - image_id 实例的启动镜像ID（建议是自制镜像）
         - system_disk（可以留null，即为默认分配系统盘）系统盘配置

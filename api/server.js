@@ -6,11 +6,15 @@ const path = require('path');
 const configs = require('../basic/config-box');
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
-const jsonReader = require('../basic/json-reader');
+const jsonHoist = require('../basic/json-hoist');
 // 服务器临时文件存放目录
 const serverTemp = 'server_data';
 // launch.lock这个文件存在则代表服务器已经部署
 const lockFile = path.join(__dirname, `../${serverTemp}/launch.lock`);
+// login.pem，服务器登录密匙文件
+const keyFile = path.join(__dirname, `../${serverTemp}/login.pem`);
+// instance_details实例详细信息
+const insDetailsFile = path.join(__dirname, `../${serverTemp}/instance_details.json`);
 
 /**
  * 设置backend_status状态文件
@@ -19,14 +23,7 @@ const lockFile = path.join(__dirname, `../${serverTemp}/launch.lock`);
  * @returns {Promise}
  */
 function updateBackendStatus(keys, values) {
-    if (!(keys instanceof Array)) keys = [keys];
-    if (!(values instanceof Array)) values = [values];
-    return jsonReader.asc(configs.backendStatusPath).then(parsed => {
-        for (let i = 0, len = keys.length; i < len; i++) {
-            parsed[keys[i]] = values[i];
-        }
-        return fs.writeFile(configs.backendStatusPath, JSON.stringify(parsed));
-    }).catch(err => {
+    return jsonHoist.ascSet(configs['backendStatusPath'], keys, values).catch(err => {
         // 设置状态失败，写入日志
         let errMsg = 'Failed to set status: ' + err;
         outputer(2, errMsg);
@@ -56,7 +53,7 @@ function errorHandler(msg) {
     // 错误信息
     let errMsg = `Fatal:${msg}`,
         errTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }); // 错误发生的时间
-    jsonReader.asc(configs.backendStatusPath).then(parsed => {
+    jsonHoist.ascRead(configs.backendStatusPath).then(parsed => {
         let currentCode = Number(parsed['status_code']),
             topDigitDiff = Math.floor(currentCode / 1000) - 1,// 代号最高位数字差
             errCode = currentCode - topDigitDiff * 1000;// 减去最高位数字差
@@ -115,17 +112,18 @@ function elasticWrite(filePath, data) {
 }
 
 /**
- * 开始部署服务器（主入口）
+ * 比价，然后创建实例（主入口）
  * @return {Promise} res/rej 服务器是/否部署成功
+ * @note 这是第一个环节
  */
-function serverDeploy() {
+function compareAndRun() {
     setStatus(2001); // 开始比价
     return cloud.filterInsType().then(insConfigs => {
         insConfigs.sort((former, latter) => { // 根据价格、内网带宽进行排序
             // 计算权重数：先把折扣价*1000，减去内网带宽*20。数值越小，权重越大
             let formerWeight = former['Price']['UnitPriceDiscount'] * 1000 - former['InstanceBandwidth'] * 20,
                 latterWeight = latter['Price']['UnitPriceDiscount'] * 1000 - latter['InstanceBandwidth'] * 20;
-            return formerWeight - latterWeight;
+            return latterWeight - formerWeight; // 降序，这样后面直接pop就行
         });
         if (insConfigs.length <= 0) {
             // 设置状态码为2000，触发错误1000
@@ -137,8 +135,28 @@ function serverDeploy() {
         return Promise.resolve(insConfigs);
         // rejected留给外面处理
     }).then(insConfigs => {
-        cloud.generateKey().then(keyObj=>{
-            
+        setStatus(2002); // 生成密匙对
+        return cloud.generateKey().then(keyObj => {
+            // 写入密钥文件
+            return fs.writeFile(keyFile, keyObj['privateKey'], {
+                encoding: 'utf8'
+            }).then(res => {
+                // 把keyId传下去，在创建实例的时候可以直接绑定
+                return Promise.resolve([insConfigs, keyObj['keyId']]);
+            })
+        });
+    }).then(configsAndKey => {
+        setStatus(2003); // 创建实例
+        let [insConfigs, keyId] = configsAndKey;
+        return cloud.createInstance(insConfigs, keyId).then(insId => {
+            let detailedData = {
+                instance_id: insId
+            };
+            return fs.writeFile(insDetailsFile, JSON.stringify(detailedData), {
+                encoding: 'utf8'
+            }).then(res => {
+                return Promise.resolve(insId); // 将实例ID传入下一个环节
+            });
         });
     })
 }
@@ -157,7 +175,7 @@ module.exports = {
         } catch (e) {
             // 创建launch.lock文件
             elasticWrite(lockFile, `Launched at ${new Date().toISOString()}`);
-            serverDeploy() // 交由异步函数处理
+            compareAndRun() // 交由异步函数处理
                 .catch(err => {
                     errorHandler(err);
                 });
