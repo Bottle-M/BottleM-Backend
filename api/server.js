@@ -6,7 +6,7 @@ const path = require('path');
 const configs = require('../basic/config-box');
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
-const jsonHoist = require('../basic/json-hoist');
+const jsons = require('../basic/json-scaffold');
 // 服务器临时文件存放目录
 const serverTemp = 'server_data';
 // launch.lock这个文件存在则代表服务器已经部署
@@ -23,7 +23,7 @@ const insDetailsFile = path.join(__dirname, `../${serverTemp}/instance_details.j
  * @returns {Promise}
  */
 function updateBackendStatus(keys, values) {
-    return jsonHoist.ascSet(configs['backendStatusPath'], keys, values).catch(err => {
+    return jsons.ascSet(configs['backendStatusPath'], keys, values).catch(err => {
         // 设置状态失败，写入日志
         let errMsg = 'Failed to set status: ' + err;
         outputer(2, errMsg);
@@ -53,7 +53,7 @@ function errorHandler(msg) {
     // 错误信息
     let errMsg = `Fatal:${msg}`,
         errTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }); // 错误发生的时间
-    jsonHoist.ascRead(configs.backendStatusPath).then(parsed => {
+    jsons.ascRead(configs.backendStatusPath).then(parsed => {
         let currentCode = Number(parsed['status_code']),
             topDigitDiff = Math.floor(currentCode / 1000) - 1,// 代号最高位数字差
             errCode = currentCode - topDigitDiff * 1000;// 减去最高位数字差
@@ -112,8 +112,8 @@ function elasticWrite(filePath, data) {
 }
 
 /**
- * 比价，然后创建实例（主入口）
- * @return {Promise} res/rej 服务器是/否部署成功
+ * 比价，然后创建实例
+ * @return {Promise} resolve创建的实例ID
  * @note 这是第一个环节
  */
 function compareAndRun() {
@@ -150,7 +150,8 @@ function compareAndRun() {
         let [insConfigs, keyId] = configsAndKey;
         return cloud.createInstance(insConfigs, keyId).then(insId => {
             let detailedData = {
-                instance_id: insId
+                instance_id: insId,
+                instance_key_id: keyId
             };
             return fs.writeFile(insDetailsFile, JSON.stringify(detailedData), {
                 encoding: 'utf8'
@@ -159,6 +160,45 @@ function compareAndRun() {
             });
         });
     })
+}
+
+/**
+ * 建立“基地”（在创建的实例上）
+ * @param {string} insId 实例ID
+ * @return {Promise} 
+ * @note 这是第二个环节
+ */
+function setUpBase(insId) {
+    let timer = null;
+    return new Promise((res, rej) => {
+        setStatus(2100); // 等待实例开始运行
+        timer = setInterval(() => {
+            // 每5秒查询一次服务器是否已经启动
+            cloud.describeInstance(insId).then(insInfo => {
+                //  实例已经启动，可以进行连接
+                if (insInfo['InstanceState'] === 'RUNNING') {
+                    // 清理计时器（这里不用finally是因为可能后续请求执行完前不会执行finally中的代码）
+                    clearTimeout(timer);
+                    let pubIp = insInfo['PublicIpAddresses'][0];
+                    if (!pubIp) {
+                        return Promise.reject('No public ip address');
+                    }
+                    // 将公网IP写入instance_details
+                    return jsons.ascSet(insDetailsFile, 'instance_ip', pubIp).then(success => {
+                        return Promise.resolve(pubIp);
+                    });
+                }
+            }).then(pubIp => {
+                res(pubIp);
+            }).catch(err => {
+                clearTimeout(timer);
+                rej(err);
+            });
+        }, 5000);
+    }).then((pubIp) => {
+        setStatus(2101); // 尝试通过SSH连接实例
+        
+    });
 }
 
 module.exports = {
@@ -176,6 +216,10 @@ module.exports = {
             // 创建launch.lock文件
             elasticWrite(lockFile, `Launched at ${new Date().toISOString()}`);
             compareAndRun() // 交由异步函数处理
+                .then(insId => {
+                    // 开始在实例上建设“基地”
+                    return setUpBase(insId);
+                })
                 .catch(err => {
                     errorHandler(err);
                 });

@@ -2,7 +2,7 @@
 'use strict';
 const chalk = require('chalk');
 const path = require('path');
-const jsonHoist = require('./json-hoist');
+const jsons = require('./json-scaffold');
 
 /**
  * 同步读取配置文件
@@ -10,7 +10,7 @@ const jsonHoist = require('./json-hoist');
  * @returns 返回配置文件内容
  */
 function configReader(configName) {
-    let configFile = jsonHoist.scRead(`./configs/${configName}`);
+    let configFile = jsons.scRead(`./configs/${configName}`);
     if (!configFile) {
         // 这里输出错误警告要单独写
         console.log(chalk.red(`[ERROR] Config file: ${configName}.json read failed!`));
@@ -58,7 +58,7 @@ module.exports = {
      * @returns {Promise} Promise对象
      */
     asc: async function (configName) {
-        return jsonHoist.scRead(`./configs/${configName}`).then(apiConfig => {
+        return jsons.scRead(`./configs/${configName}`).then(apiConfig => {
             return Promise.resolve(apiConfig); // 返回解析的数据
         }, rejected => {
             // 这里输出错误警告要单独写

@@ -200,9 +200,38 @@ function createInstance(insConfigs, keyId) {
     );
 }
 
+/**
+ * 查询实例状态信息
+ * @param {String} insId 
+ * @returns {Promise}
+ */
+function describeInstance(insId) {
+    let params = {
+        "InstanceIds": [
+            insId
+        ]
+    };
+    return client.DescribeInstances(params).then(
+        (data) => {
+            let insInfo = data['InstanceSet'][0];
+            if (!insInfo) {
+                // 返回的数据中没有实例信息，说明实例不存在
+                return Promise.reject(`Instance ${insId} not found.`);
+            } else {
+                // 返回实例信息
+                return Promise.resolve(insInfo);
+            }
+        },
+        (err) => {
+            return Promise.reject(`Error occurred while describing instance: ${err}`);
+        }
+    );
+}
+
 module.exports = {
     filterInsType: filterInsType,
     generateKey: generateKey,
     deleteKey: deleteKey,
-    createInstance: createInstance
+    createInstance: createInstance,
+    describeInstance: describeInstance
 }

@@ -14,5 +14,13 @@
     "2003": {
         "msg": "Requesting for Instance...",
         "inform": false
+    },
+    "2100": {
+        "msg": "Waiting to connect to the instance...",
+        "inform": false
+    },
+    "2101": {
+        "msg": "Trying to connect to the instance...",
+        "inform": false
     }
 }
