@@ -16,11 +16,15 @@
         "inform": false
     },
     "2100": {
-        "msg": "Waiting to connect to the instance...",
+        "msg": "Waiting for the instance to run...",
         "inform": false
     },
     "2101": {
         "msg": "Trying to connect to the instance...",
         "inform": false
+    },
+    "2102": {
+        "msg": "Setting up the Instance Side...",
+        "inform": true
     }
 }

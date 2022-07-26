@@ -24,6 +24,9 @@ api_configs:
         - security_group_id 安全组ID
         - host_name 主机名
         - max_spot_price 最大竞价出价（单位：元）
+    instance_side_git - BottleM实例“基地”的Git仓库地址
+    ssh_ready_timeout - ssh连接实例的超时时间（单位：毫秒）
+    ssh_keep_alive_interval - ssh保持连接的间隔时间（单位：毫秒）
 
 status_codes:
     每一项中：

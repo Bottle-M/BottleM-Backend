@@ -179,13 +179,13 @@ function createInstance(insConfigs, keyId) {
                     "SpotInstanceType": "one-time"
                 }
             },
-            "DryRun": true, // 测试用
+            "DryRun": false, // 测试用
             "DisableApiTermination": false // 允许API销毁实例
         };
     return client.RunInstances(params).then(
         (data) => {
             let instances = data['InstanceIdSet'];
-            if (!instances[0]) {
+            if (!instances) {
                 console.log(`[DEBUG]${data}`);
             } else {
                 // 返回创建的实例的ID

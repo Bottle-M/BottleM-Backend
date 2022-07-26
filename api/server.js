@@ -1,9 +1,11 @@
 // 服务器相关API
 'use strict';
 const chalk = require('chalk');
-const { promises: fs, statSync, writeFileSync, mkdirSync, rmSync } = require('fs');
+const fs = require('fs');
+const ascFs = fs.promises;
 const path = require('path');
 const configs = require('../basic/config-box');
+const apiConfigs = configs['apiConfigs'];
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
 const jsons = require('../basic/json-scaffold');
@@ -18,7 +20,7 @@ const keyFile = path.join(__dirname, `../${serverTemp}/login.pem`);
 const insDetailsFile = path.join(__dirname, `../${serverTemp}/instance_details.json`);
 
 /**
- * 设置backend_status状态文件
+ * （异步）设置backend_status状态文件
  * @param {String|Array} keys 设置的键（可以是键组成的数组）
  * @param {String|Array} values 设置的内容（可以是内容组成的数组）
  * @returns {Promise}
@@ -33,7 +35,7 @@ function updateBackendStatus(keys, values) {
 }
 
 /**
- * 根据状态代号设置状态信息
+ * （异步）根据状态代号设置状态信息
  * @param {Number} code 
  * @returns {Promise}
  */
@@ -47,6 +49,20 @@ function setStatus(code) {
 }
 
 /**
+ * （同步）获得状态文件内容
+ * @param {String} key 查询的键，留空会返回所有键值对
+ * @returns 对象或者单个类型的值，读取失败会返回null
+ */
+function getStatus(key = '') {
+    let status = jsons.scRead(configs['backendStatusPath']);
+    if (status) {
+        return key ? status[key] : status;
+    } else {
+        return null;
+    }
+}
+
+/**
  * 发生错误时进行的工作
  * @param {String} msg 错误信息
  */
@@ -54,7 +70,7 @@ function errorHandler(msg) {
     // 错误信息
     let errMsg = `Fatal:${msg}`,
         errTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }); // 错误发生的时间
-    jsons.ascRead(configs.backendStatusPath).then(parsed => {
+    jsons.ascRead(configs['backendStatusPath']).then(parsed => {
         let currentCode = Number(parsed['status_code']),
             topDigitDiff = Math.floor(currentCode / 1000) - 1,// 代号最高位数字差
             errCode = currentCode - topDigitDiff * 1000;// 减去最高位数字差
@@ -81,7 +97,7 @@ function errorHandler(msg) {
  */
 function elasticDel(filePath) {
     try {
-        rmSync(filePath);
+        fs.rmSync(filePath);
     } catch (e) {
         console.log(`Unable to remove file: ${filePath}`);
     }
@@ -96,12 +112,12 @@ function elasticDel(filePath) {
 function elasticWrite(filePath, data) {
     let dirPath = path.dirname(filePath); // 获得文件目录
     try {
-        statSync(dirPath); // 检查目录是否存在
+        fs.statSync(dirPath); // 检查目录是否存在
     } catch (e) {
-        mkdirSync(dirPath, { recursive: true }); // 创建目录
+        fs.mkdirSync(dirPath, { recursive: true }); // 创建目录
     }
     try {
-        writeFileSync(filePath, data, {
+        fs.writeFileSync(filePath, data, {
             encoding: 'utf8'
         });
     } catch (e) {
@@ -139,7 +155,7 @@ function compareAndRun() {
         setStatus(2002); // 生成密匙对
         return cloud.generateKey().then(keyObj => {
             // 写入密钥文件
-            return fs.writeFile(keyFile, keyObj['privateKey'], {
+            return ascFs.writeFile(keyFile, keyObj['privateKey'], {
                 encoding: 'utf8'
             }).then(res => {
                 // 把keyId传下去，在创建实例的时候可以直接绑定
@@ -154,7 +170,7 @@ function compareAndRun() {
                 instance_id: insId,
                 instance_key_id: keyId
             };
-            return fs.writeFile(insDetailsFile, JSON.stringify(detailedData), {
+            return ascFs.writeFile(insDetailsFile, JSON.stringify(detailedData), {
                 encoding: 'utf8'
             }).then(res => {
                 return Promise.resolve(insId); // 将实例ID传入下一个环节
@@ -188,9 +204,12 @@ function setUpBase(insId) {
                     return jsons.ascSet(insDetailsFile, 'instance_ip', pubIp).then(success => {
                         return Promise.resolve(pubIp);
                     });
+                } else {
+                    return Promise.resolve('');
                 }
             }).then(pubIp => {
-                res(pubIp);
+                if (pubIp) // 如果得到了公网IP，就可以进行连接
+                    res(pubIp);
             }).catch(err => {
                 clearTimeout(timer);
                 rej(err);
@@ -198,8 +217,27 @@ function setUpBase(insId) {
         }, 5000);
     }).then((pubIp) => {
         setStatus(2101); // 尝试通过SSH连接实例
+        let sshConn = new ssh2Client(); // 创建ssh连接
+        return new Promise((res, rej) => {
+            sshConn.on('ready', () => {
+                // 连接成功
+                console.log('Successfully connected to the instance.');
+                res(sshConn); // 把连接传下去
+            }).on('error', err => {
+                rej(`Failed to connect to the instance: ${err}`);
+            }).connect({
+                host: pubIp,
+                port: 22,
+                username: 'root',
+                privateKey: fs.readFileSync(keyFile, 'utf8'),
+                readyTimeout: apiConfigs['ssh_ready_timeout'],
+                keepaliveInterval: apiConfigs['ssh_keep_alive_interval']
+            });
+        });
+    }).then((sshConn) => {
+        setStatus(2102); // 开始部署实例上的“基地”
 
-    });
+    })
 }
 
 module.exports = {
@@ -209,23 +247,30 @@ module.exports = {
      * @returns 装有返回数据的对象
      */
     launch: function (resultObj) {
-        try {
-            // 检查是否有launch.lock文件
-            statSync(lockFile);
-            resultObj.msg = 'Server Already Launched';
-        } catch (e) {
-            // 创建launch.lock文件
-            elasticWrite(lockFile, `Launched at ${new Date().toISOString()}`);
-            compareAndRun() // 交由异步函数处理
-                .then(insId => {
-                    // 开始在实例上建设“基地”
-                    return setUpBase(insId);
-                })
-                .catch(err => {
-                    errorHandler(err);
-                });
-            resultObj.msg = 'Starting to deploy the server!';
-            resultObj.code = 0; // 0 代表交由异步处理
+        // 检查状态文件，取不到文件默认1000
+        let statusCode = getStatus('status_code') || 1000;
+        if (Math.floor(statusCode / 1000) == 1) {
+            // 出现了错误，阻止服务器启动
+            resultObj.msg = 'Error exists, unable to launch the server';
+        } else {
+            try {
+                // 检查是否有launch.lock文件
+                fs.statSync(lockFile);
+                resultObj.msg = 'Server Already Launched';
+            } catch (e) {
+                // 创建launch.lock文件
+                elasticWrite(lockFile, `Launched at ${new Date().toISOString()}`);
+                compareAndRun() // 交由异步函数处理
+                    .then(insId => {
+                        // 开始在实例上建设“基地”
+                        return setUpBase(insId);
+                    })
+                    .catch(err => {
+                        errorHandler(err);
+                    });
+                resultObj.msg = 'Starting to deploy the server!';
+                resultObj.code = 0; // 0 代表交由异步处理
+            }
         }
         return resultObj;
     }

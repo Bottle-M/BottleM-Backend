@@ -25,5 +25,8 @@
         "security_group_id":"sg-azrr4xvr",
         "host_name":"bottlem",
         "max_spot_price":0.3
-    }
+    },
+    "instance_side_git":"https://github.com/SomeBottle/BottleM-InsSide.git",
+    "ssh_ready_timeout":10000,
+    "ssh_keep_alive_interval":8000
 }
