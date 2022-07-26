@@ -7,6 +7,7 @@ const configs = require('../basic/config-box');
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
 const jsons = require('../basic/json-scaffold');
+const ssh2Client = require('ssh2').Client;
 // 服务器临时文件存放目录
 const serverTemp = 'server_data';
 // launch.lock这个文件存在则代表服务器已经部署
@@ -177,7 +178,7 @@ function setUpBase(insId) {
             cloud.describeInstance(insId).then(insInfo => {
                 //  实例已经启动，可以进行连接
                 if (insInfo['InstanceState'] === 'RUNNING') {
-                    // 清理计时器（这里不用finally是因为可能后续请求执行完前不会执行finally中的代码）
+                    // 清理计时器（这里不用finally是因为后续请求执行完前不会执行finally中的代码）
                     clearTimeout(timer);
                     let pubIp = insInfo['PublicIpAddresses'][0];
                     if (!pubIp) {
@@ -197,7 +198,7 @@ function setUpBase(insId) {
         }, 5000);
     }).then((pubIp) => {
         setStatus(2101); // 尝试通过SSH连接实例
-        
+
     });
 }
 
