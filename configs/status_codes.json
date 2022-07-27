@@ -24,7 +24,11 @@
         "inform": false
     },
     "2102": {
-        "msg": "Setting up the Instance Side...",
+        "msg": "Deliverying the Deploy Script of the InsSide...",
+        "inform": false
+    },
+    "2103": {
+        "msg": "Setting up the Instance Side",
         "inform": true
     }
 }

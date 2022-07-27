@@ -59,5 +59,5 @@ function ascSet(jPath, keys, values) {
 module.exports = {
     ascRead: ascRead,
     scRead: scRead,
-    ascSet:ascSet
+    ascSet: ascSet
 }

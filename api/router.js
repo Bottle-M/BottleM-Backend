@@ -1,6 +1,15 @@
 // HTTP API路由
 'use strict';
-const server = require('./server.js');
+const server = require('./server');
+const utils = require('./server-utils')
+
+// 检查是否意外重启
+let currentStatus = utils.getStatus('status_code');
+if (currentStatus && currentStatus > 2000) {
+    console.log('Trying to resume...');
+    // 状态码>2000说明上一次进程结束时服务器仍在部署/运行
+    server.resume(); // 恢复上一次连接
+}
 
 /**
  * 针对backend操作进行分发

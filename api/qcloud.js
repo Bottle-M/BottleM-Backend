@@ -5,6 +5,8 @@ const CvmClient = qcloudCvm.cvm.v20170312.Client;
 const path = require('path');
 const configs = require('../basic/config-box');
 const outputer = require('../basic/output');
+// 记录待删除密匙对，防止撞车
+const deletingKeyPairs = new Object();
 // 设置EndPoint
 const cvmEndPoint = 'cvm.tencentcloudapi.com';
 // 获得除了secret之外的配置
@@ -108,6 +110,32 @@ function generateKey() {
 }
 
 /**
+ * 查询密匙对信息
+ * @param {String} keyId 
+ * @returns {Promise} resolve一个对象,包含查询的密匙对的信息
+ */
+function describeKey(keyId) {
+    let params = {
+        "KeyIds": [
+            keyId
+        ]
+    };
+    return client.DescribeKeyPairs(params).then(
+        (data) => {
+            let keyInfo = data['KeyPairSet'][0];
+            if (!keyInfo) {
+                // 查无此密匙对
+                return Promise.reject(`KeyPair ${keyId} not Found`);
+            }
+            return Promise.resolve(keyInfo);
+        },
+        (err) => {
+            return Promise.reject(`Error occurred while querying Key Pair: ${err}`);
+        }
+    );
+}
+
+/**
  * 删除实例登录密匙对
  * @param {*} keyId 密匙对ID
  * @returns {Promise} 返回Promise对象
@@ -126,6 +154,63 @@ function deleteKey(keyId) {
             return Promise.reject(`Error occurred while deleting Key Pair: ${err}`);
         }
     );
+}
+
+/**
+ * 耐心地等待删除密匙对
+ * @param {String} keyId 
+ * @returns {Promise}
+ * @note 因为和实例绑定的密匙对无法立即删除，可以利用这个函数将密匙ID加入等待队列 !!! 另外，有实例在创建的时候也不能删除密匙对！
+ */
+function elasticDelKey(keyId) {
+    if (deletingKeyPairs[keyId]) // 密匙对正在等待删除
+        return Promise.resolve('The key pair is under deletion');
+    // 加入删除等待队列
+    outputer(1, `Added key ${keyId} to the waiting list of deletion.`);
+    deletingKeyPairs[keyId] = new Date().getTime();
+    let timer = null;
+    return new Promise((resolve, reject) => {
+        timer = setInterval(() => {
+            describeInstance().then(insSets => {
+                // 保证当前所有实例都不在“创建中”状态
+                // 不然可能触发腾讯云的BUG
+                let allCreated = insSets.every(insInfo => {
+                    return !(['PENDING', 'TERMINATING'].includes(insInfo['InstanceState']));
+                });
+                if (allCreated) {
+                    clearInterval(timer);
+                    return Promise.resolve('done');
+                }
+            })
+        }, 5000);
+    }).then(res => {
+        return new Promise((resolve, reject) => {
+            // 因为和实例绑定的Key是无法被删除的，这里需要等待Key和实例解绑
+            timer = setInterval(() => {
+                describeKey(keyId).then(keySet => {
+                    if (keySet['AssociatedInstanceIds'].length <= 0) {
+                        // 没有实例和该密匙对绑定，可以删除了
+                        return Promise.resolve(keyId);
+                    } else {
+                        return Promise.reject(null);
+                    }
+                }).then(keyId => {
+                    // 正式删除密匙对
+                    return deleteKey(keyId).then(res => {
+                        delete deletingKeyPairs[keyId]; // 从对象中移除待删除
+                        clearInterval(timer); // 删除计时器
+                        resolve('success');
+                    })
+                }).catch(err => {
+                    if (err) { // 不处理null错误
+                        delete deletingKeyPairs[keyId]; // 从对象中移除待删除
+                        clearInterval(timer); // 删除计时器
+                        reject(`Error occured while waiting to delete key ${keyId}: ${err}`);
+                    }
+                })
+            }, 5000);
+        });
+    });
 }
 
 /**
@@ -201,25 +286,50 @@ function createInstance(insConfigs, keyId) {
 }
 
 /**
- * 查询实例状态信息
- * @param {String} insId 
+ * 退还实例
+ * @param {String} insId 实例ID 
  * @returns {Promise}
  */
-function describeInstance(insId) {
+function terminateInstance(insId) {
     let params = {
         "InstanceIds": [
             insId
         ]
     };
+    return client.TerminateInstances(params).then(
+        (data) => {
+            return Promise.resolve('done');
+        },
+        (err) => {
+            return Promise.reject(`Failed to terminate instance: ${err}`);
+        }
+    );
+}
+
+/**
+ * 查询实例状态信息
+ * @param {String} insId 
+ * @returns {Promise} resolve一个对象，包含查询的实例的信息
+ * @note 如果没有传入insId，则返回InstanceSet
+ */
+function describeInstance(insId = '') {
+    let params = insId ? {
+        "InstanceIds": [
+            insId
+        ]
+    } : {};
     return client.DescribeInstances(params).then(
         (data) => {
-            let insInfo = data['InstanceSet'][0];
-            if (!insInfo) {
-                // 返回的数据中没有实例信息，说明实例不存在
-                return Promise.reject(`Instance ${insId} not found.`);
-            } else {
+            if (insId) {
+                let insInfo = data['InstanceSet'][0];
+                if (!insInfo) {
+                    // 返回的数据中没有实例信息，说明实例不存在
+                    return Promise.reject(`Instance ${insId} not found.`);
+                }
                 // 返回实例信息
                 return Promise.resolve(insInfo);
+            } else {
+                return Promise.resolve(data['InstanceSet']);
             }
         },
         (err) => {
@@ -233,5 +343,8 @@ module.exports = {
     generateKey: generateKey,
     deleteKey: deleteKey,
     createInstance: createInstance,
-    describeInstance: describeInstance
+    describeInstance: describeInstance,
+    terminateInstance: terminateInstance,
+    describeKey: describeKey,
+    elasticDelKey: elasticDelKey
 }

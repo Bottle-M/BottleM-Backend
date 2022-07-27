@@ -24,7 +24,8 @@ api_configs:
         - security_group_id 安全组ID
         - host_name 主机名
         - max_spot_price 最大竞价出价（单位：元）
-    instance_side_git - BottleM实例“基地”的Git仓库地址
+    instance_run_timeout - 等待实例运行的最长时间（单位：毫秒）
+    instance_side_sh - BottleM实例“基地”部署的Shell脚本文件名，脚本存放在./scripts/中
     ssh_ready_timeout - ssh连接实例的超时时间（单位：毫秒）
     ssh_keep_alive_interval - ssh保持连接的间隔时间（单位：毫秒）
 
@@ -36,4 +37,7 @@ status_codes:
 
 
 腾讯云API需要的权限：
-CVM查询创建退回,密匙创建/销毁相关
+CVM查询创建退回,密匙创建/销毁相关,COS访问
+
+实例镜像中安装coscli后生成配置文件，为了安全性不要填写其中的
+secretId和secretKey（当然填了也不是不行）
