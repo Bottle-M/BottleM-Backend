@@ -179,7 +179,7 @@ function elasticDelKey(keyId) {
                 });
                 if (allCreated) {
                     clearInterval(timer);
-                    return Promise.resolve('done');
+                    return resolve('done');
                 }
             })
         }, 5000);
