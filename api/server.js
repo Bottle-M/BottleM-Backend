@@ -212,6 +212,8 @@ function setUpBase(insId) {
                     } else {
                         rej(`Deploy Failed, code:${code}, signal:${signal}`);
                     }
+                }).on('error', (err) => {
+                    rej(`Deploy Failed Due to Stream Error: ${err}`);
                 }).on('data', (data) => {
                     console.log('SHELL STDOUT: ' + data);
                 }).stderr.on('data', (data) => {
