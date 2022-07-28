@@ -37,19 +37,26 @@ function compareAndRun() {
             return insId ? Promise.resolve(insId) : Promise.reject('No instance ID found, unable to resume');
         } else { // 上次终止时仍然在进行创建密匙对/实例工作
             outputer(1, 'Cleaning remains of the incomplete deployment.');
-            // 如果密匙对已经创建，就消耗密匙对
-            if (keyId)
+            // 如果密匙对已经创建，就销毁密匙对
+            if (keyId) {
                 cloud.elasticDelKey(keyId).then(res => {
                     outputer(1, `Key ${keyId} was deleted.`);
                 }).catch(err => {
-                    outputer(2, `Failed to delete key: ${err}`)
-                })
+                    outputer(2, err);
+                });
+                // 如果密匙对已经创建，十有八九有一个失去控制的实例，这里也需要进行清除
+                utils.terminateOOCIns().then(res => {
+                    outputer(1, `Out-of-control Instances were terminated.`);
+                }).catch(err => {
+                    outputer(2, err);
+                });
+            }
             // 实例已经创建，就销毁实例
             if (insId)
                 cloud.terminateInstance(insId).then(res => {
                     outputer(1, `Instance ${insId} was terminated.`);
                 }).catch(err => {
-                    outputer(2, `Failed to terminate instance ${insId}`);
+                    outputer(2, `Failed to terminate instance ${insId}: ${err}`);
                 });
             // 删除实例临时文件
             utils.cleanServerTemp();
@@ -121,7 +128,7 @@ function setUpBase(insId) {
     let timer = null,
         alreadyWaitFor = 0, // 已经等待了多久（毫秒）
         queryInterval = 5000, // 每5秒查询一次
-        sshConn; // 保存ssh连接
+        sshConn = null; // 保存ssh连接
     return new Promise((res, rej) => {
         utils.setStatus(2100); // 等待实例开始运行
         timer = setInterval(() => {
@@ -202,7 +209,11 @@ function setUpBase(insId) {
                     if (code === 0) {
                         outputer(1, 'Successfully deployed.');
                         res(sshConn);
+                    } else {
+                        rej(`Deploy Failed, code:${code}, signal:${signal}`);
                     }
+                }).on('data', (data) => {
+                    console.log('SHELL STDOUT: ' + data);
                 }).stderr.on('data', (data) => {
                     rej(`Deploy Script Error: ${data}`);
                 });
@@ -210,7 +221,8 @@ function setUpBase(insId) {
         });
     }).finally(() => {
         // 最后关闭ssh客户端连接
-        sshConn.end();
+        if (sshConn)
+            sshConn.end();
     });
 }
 

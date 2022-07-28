@@ -4,6 +4,7 @@ const fs = require('fs');
 const ascFs = fs.promises;
 const chalk = require('chalk');
 const path = require('path');
+const cloud = require('./qcloud');
 const configs = require('../basic/config-box');
 const jsons = require('../basic/json-scaffold');
 const outputer = require('../basic/output');
@@ -57,7 +58,51 @@ function setInsDetail(keys, values) {
 }
 
 /**
- * （同步）获得状态文件内容
+ * 销毁脱离控制(Out-Of-Control)的实例（筛选范围基于ProjectID）
+ * @returns {Promise}
+ * @note 注意，这是一个危险操作，可能造成数据丢失
+ */
+function terminateOOCIns() {
+    let insId = getInsDetail('ins_id'),
+        timer = null;
+    outputer(1, 'Waiting to terminate out-of-control instance(s)...');
+    return new Promise((resolve, reject) => {
+        timer = setInterval(() => {
+            cloud.describeInstance().then(insSets => {
+                // 保证当前所有实例都不在“创建中”状态
+                // 不然可能触发腾讯云的BUG
+                let allCreated = insSets.every(insInfo => {
+                    return !(['PENDING', 'TERMINATING'].includes(insInfo['InstanceState']));
+                });
+                if (allCreated) {
+                    clearInterval(timer);
+                    resolve(insSets);
+                }
+            }).catch(err => {
+                reject(err);
+            });
+        }, 5000);
+    }).then(insSets => {
+        // 筛选出当前project中未受控制的实例（insId不匹配）
+        // 如果insId为空，所有当前project中的实例会被销毁
+        let terminateIds = insSets.filter(insInfo => {
+            return (!insId) || (insInfo['InstanceId'] !== insId);
+        }).map(insInfo => {
+            // 转换为待销毁实例id数组
+            return insInfo['InstanceId'];
+        });
+        // 如果没有需要销毁的实例，则直接返回
+        if (terminateIds.length === 0)
+            return Promise.resolve('done');
+        return cloud.terminateInstance(terminateIds);
+    }).catch(err => {
+        clearInterval(timer);
+        return Promise.reject(`Error occurred while terminating out-of-control instance(s): ${err}`);
+    })
+}
+
+/**
+ * （同步）获得状态文件内容 
  * @param {String} key 查询的键，留空会返回所有键值对
  * @returns 对象或者单个类型的值，读取失败会返回null
  */
@@ -178,5 +223,6 @@ module.exports = {
     errorHandler: errorHandler,
     safeDel: safeDel,
     elasticWrite: elasticWrite,
-    cleanServerTemp: cleanServerTemp
+    cleanServerTemp: cleanServerTemp,
+    terminateOOCIns: terminateOOCIns
 }

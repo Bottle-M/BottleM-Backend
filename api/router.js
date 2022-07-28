@@ -8,7 +8,7 @@ let currentStatus = utils.getStatus('status_code');
 if (currentStatus && currentStatus > 2000) {
     console.log('Trying to resume...');
     // 状态码>2000说明上一次进程结束时服务器仍在部署/运行
-    server.resume(); // 恢复上一次连接
+    server.resume(); // 恢复上一次的工作
 }
 
 /**

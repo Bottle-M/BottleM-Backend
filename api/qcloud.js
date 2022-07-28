@@ -181,6 +181,8 @@ function elasticDelKey(keyId) {
                     clearInterval(timer);
                     return resolve('done');
                 }
+            }).catch(err => {
+                reject(err);
             })
         }, 5000);
     }).then(res => {
@@ -190,6 +192,7 @@ function elasticDelKey(keyId) {
                 describeKey(keyId).then(keySet => {
                     if (keySet['AssociatedInstanceIds'].length <= 0) {
                         // 没有实例和该密匙对绑定，可以删除了
+                        clearInterval(timer); // 删除计时器
                         return Promise.resolve(keyId);
                     } else {
                         return Promise.reject(null);
@@ -198,19 +201,19 @@ function elasticDelKey(keyId) {
                     // 正式删除密匙对
                     return deleteKey(keyId).then(res => {
                         delete deletingKeyPairs[keyId]; // 从对象中移除待删除
-                        clearInterval(timer); // 删除计时器
                         resolve('success');
                     })
                 }).catch(err => {
-                    if (err) { // 不处理null错误
-                        delete deletingKeyPairs[keyId]; // 从对象中移除待删除
-                        clearInterval(timer); // 删除计时器
-                        reject(`Error occured while waiting to delete key ${keyId}: ${err}`);
-                    }
+                    if (err)// 不处理null错误
+                        reject(err);
                 })
             }, 5000);
         });
-    });
+    }).catch(err => {
+        clearInterval(timer);
+        delete deletingKeyPairs[keyId]; // 从对象中移除待删除
+        return Promise.reject(`Error occured while waiting to delete key ${keyId}: ${err}`);
+    })
 }
 
 /**
@@ -287,14 +290,13 @@ function createInstance(insConfigs, keyId) {
 
 /**
  * 退还实例
- * @param {String} insId 实例ID 
+ * @param {String|Array} insId 实例ID（可以是单个字符串，也可以是数组）
  * @returns {Promise}
  */
 function terminateInstance(insId) {
+    if (!(insId instanceof Array)) insId = [insId];
     let params = {
-        "InstanceIds": [
-            insId
-        ]
+        "InstanceIds": insId
     };
     return client.TerminateInstances(params).then(
         (data) => {
@@ -313,11 +315,27 @@ function terminateInstance(insId) {
  * @note 如果没有传入insId，则返回InstanceSet
  */
 function describeInstance(insId = '') {
-    let params = insId ? {
-        "InstanceIds": [
-            insId
+    let params = {
+        "Filters": [
+            {
+                "Name": "project-id",
+                "Values": [
+                    // 筛选出当前项目的实例
+                    // 似乎Filters中的Integer字段还是要转换成字符串才有用。
+                    String(qcloudConfigs['project_id'])
+                ]
+            }
         ]
-    } : {};
+    };
+    if (insId) {
+        // 腾讯云API不支持InstanceIds字段和Filters同时存在，所以全部要用Filters解决
+        params['Filters'].push({
+            "Name": "instance-id",
+            "Values": [
+                insId
+            ]
+        });
+    }
     return client.DescribeInstances(params).then(
         (data) => {
             if (insId) {
