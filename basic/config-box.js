@@ -55,9 +55,11 @@ const launchLockFile = path.join(__dirname, `../${serverTemp}/launch.lock`);
 // 实例登入私匙文件路径
 const loginKeyFile = path.join(__dirname, `../${serverTemp}/login.pem`);
 
-// 实例端Websocket通信密匙文件路径
-const wsKeyFile = path.join(__dirname, `../${serverTemp}/websocket.key`);
 
+// 初始实例端配置内容
+const initialInsSideConfigs = {
+    'ws_port': apiConfigs['ins_side']
+}
 
 /**
  * 读取某个配置文件
@@ -75,7 +77,7 @@ module.exports = {
     launchLockFile: launchLockFile,
     insDetailsFile: insDetailsFile,
     loginKeyFile: loginKeyFile,
-    wsKeyFile: wsKeyFile,
+    initialInsSideConfigs: initialInsSideConfigs,
     sc: configReader,
     /**
      * 异步读取配置文件

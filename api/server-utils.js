@@ -243,55 +243,60 @@ function randStr(len) {
     return finalStr;
 }
 
+
 /**
- * （异步）通过SSH上传目录文件（暂不支持深层遍历）
+ * （异步）通过SSH上传数组中的文件
  * @param {ssh2Client} sshConn ssh2客户端对象
- * @param {String} localDir 本地目录（绝对路径）
- * @param {String} remoteDir 实例上的目录（绝对路径）
+ * @param {Array} fileArr 文件（绝对路径）组成的二维数组
  * @returns {Promise} 
+ * @note fileArr的每一项：[本地文件绝对路径,实例上文件的绝对路径]
  */
-function fastUploadDir(sshConn, localDir, remoteDir) {
-    return ascFs.readdir(localDir).then(files => {
-        // 先扫描文件，并且创建Promise数组
-        let tasks = [];
-        // 创建sftp端
-        return new Promise((resolve, reject) => {
-            sshConn.sftp((err, sftp) => {
-                if (err) throw err;
-                files.forEach(file => {
-                    let localPath = path.join(localDir, file),
-                        remotePath = path.join(remoteDir, file)
-                            .replaceAll(path.sep, '/'); // 将分隔符转换为POSIX风格
-                    tasks.push(new Promise((res, rej) => {
-                        sftp.fastPut(localPath, remotePath, {
-                            mode: 0o755 // 设定文件权限（八进制）
-                        }, err => {
-                            if (err) {
-                                rej(err);
-                            } else {
-                                // 成功传输一个文件
-                                console.log(`Put:${localPath} -> ${remotePath}`);
-                                res('done');
-                            }
-                        });
-                    }));
-                });
-                // 等待所有Promise完成
-                Promise.all(tasks)
-                    .then((res) => {
-                        resolve(res);
-                    }).catch(e => {
-                        reject(e);
-                    })
+function fastPutFiles(sshConn, fileArr) {
+    let tasks = [];
+    // 创建sftp端
+    return new Promise((resolve, reject) => {
+        sshConn.sftp((err, sftp) => {
+            if (err) throw err;
+            fileArr.forEach(filePaths => {
+                let [localPath, remotePath] = filePaths;
+                remotePath = toPosixSep(remotePath); // 将分隔符转换为POSIX风格
+                tasks.push(new Promise((res, rej) => {
+                    sftp.fastPut(localPath, remotePath, {
+                        mode: 0o755 // 设定文件权限（八进制）
+                    }, err => {
+                        if (err) {
+                            rej(err);
+                        } else {
+                            // 成功传输一个文件
+                            console.log(`Put:${localPath} -> ${remotePath}`);
+                            res('done');
+                        }
+                    });
+                }));
             });
+            // 等待所有Promise完成
+            Promise.all(tasks)
+                .then((res) => {
+                    resolve(res);
+                }).catch(e => {
+                    reject(e);
+                })
         });
     }).catch(err => {
-        outputer(3, `Error occured while uploading directory ${localDir}: ${err}`);
+        outputer(3, `Error occured while uploading files through SFTP: ${err}`);
         return Promise.reject(err);
     });
 }
 
 
+/**
+ * 将绝对路径转换为POSIX风格
+ * @param {String} origin 绝对路径 
+ * @returns 新的绝对路径
+ */
+function toPosixSep(origin) {
+    return origin.replaceAll(path.sep, '/');
+}
 
 module.exports = {
     updateBackendStatus: updateBackendStatus,
@@ -305,5 +310,6 @@ module.exports = {
     cleanServerTemp: cleanServerTemp,
     terminateOOCIns: terminateOOCIns,
     randStr: randStr,
-    fastUploadDir: fastUploadDir
+    fastPutFiles: fastPutFiles,
+    toPosixSep: toPosixSep
 }

@@ -10,19 +10,25 @@ const outputer = require('../basic/output');
 const utils = require('./server-utils');
 const ssh2Client = require('ssh2').Client;
 // launch.lock这个文件存在则代表服务器已经部署
-const lockFile = configs['launchLockFile'];
+const lockFilePath = configs['launchLockFile'];
 // login.pem，服务器登录密匙文件
-const keyFile = configs['loginKeyFile'];
+const keyFilePath = configs['loginKeyFile'];
 // instance_details实例详细信息文件路径
-const insDetailsFile = configs['insDetailsFile'];
-// websocket连接密匙（临时文件）的路径
-const wsKeyFile = configs['wsKeyFile'];
+const insDetailsFilePath = configs['insDetailsFile'];
+// 实例端最初配置对象
+const initialInsSideConfigs = configs['initialInsSideConfigs'];
 // 所有Shell脚本所在目录
-const localScripts = path.join(__dirname, '../scripts/');
-// 所有脚本上传到实例中的哪里（绝对路径）
-const remoteScripts = '/root/';
+const localScriptsDir = path.join(__dirname, '../scripts/');
+// 所有必要数据上传到实例中的哪里（绝对路径）
+const remoteDir = '/root/';
 // 实例端部署脚本的绝对路径（务必写成绝对路径）
-const insBaseScript = remoteScripts + apiConfigs['instance_side_sh'];
+const insDeployScriptPath = utils.toPosixSep(
+    path.join(remoteDir, apiConfigs['instance_side_sh'])
+);
+// 实例端临时配置的文件名
+const insTempConfigName = 'ins_side_configs.tmp.json';
+// 实例端临时配置的绝对路径
+const insTempConfigPath = path.join(__dirname, `../${configs['serverTemp']}/${insTempConfigName}`);
 
 
 /**
@@ -94,14 +100,14 @@ function compareAndRun() {
         return cloud.generateKey().then(keyObj => {
             let keyId = keyObj['keyId'];
             // 写入密钥文件
-            return ascFs.writeFile(keyFile, keyObj['privateKey'], {
+            return ascFs.writeFile(keyFilePath, keyObj['privateKey'], {
                 encoding: 'utf8'
             }).then(res => {
                 let detailedData = {
                     instance_key_id: keyId
                 };
                 // 将密匙ID写入instanceDetail文件
-                return ascFs.writeFile(insDetailsFile, JSON.stringify(detailedData), {
+                return ascFs.writeFile(insDetailsFilePath, JSON.stringify(detailedData), {
                     encoding: 'utf8'
                 })
             }).then(res => {
@@ -182,25 +188,44 @@ function setUpBase(insId) {
                 host: pubIp,
                 port: 22,
                 username: 'root',
-                privateKey: fs.readFileSync(keyFile, 'utf8'),
+                privateKey: fs.readFileSync(keyFilePath, 'utf8'),
                 readyTimeout: apiConfigs['ssh_ready_timeout'],
                 keepaliveInterval: apiConfigs['ssh_keep_alive_interval']
             });
         });
     }).then((sshConn) => {
         utils.setStatus(2102); // 开始部署实例上的“基地”
+        // 先创建实例端配置临时文件
+        initialInsSideConfigs['secret_key'] = utils.randStr(128); // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
+        utils.elasticWrite(insTempConfigPath, JSON.stringify(initialInsSideConfigs));
         // 通过sftp传输部署脚本
-        return utils.fastUploadDir(sshConn, localScripts, remoteScripts)
-            .then(success => {
-                outputer(1, 'Successfully delivered.');
-                return Promise.resolve(sshConn);
-            }).catch(err => {
-                return Promise.reject(`Failed to deliver the Deploy Script: ${err}`);
-            })
+        return ascFs.readdir(localScriptsDir).then(fileArr => {
+            // 将scripts目录下所有文件名和目录绝对路径连起来
+            fileArr = fileArr.map((file) =>
+                [
+                    path.join(localScriptsDir, file),
+                    path.join(remoteDir, file)
+                ]
+            );
+            // 把实例端临时配置文件也加入传输队列
+            fileArr.push([
+                insTempConfigPath,
+                utils.toPosixSep(
+                    path.join(remoteDir, insTempConfigName)
+                )
+            ]);
+            return utils.fastPutFiles(sshConn, fileArr, remoteDir)
+                .then(success => {
+                    outputer(1, 'Successfully delivered.');
+                    return Promise.resolve(sshConn);
+                })
+        }).catch(err => {
+            return Promise.reject(`Failed to deliver the Deploy Scripts: ${err}`);
+        });
     }).then((sshConn) => {
         utils.setStatus(2103); // 开始执行实例端部署脚本
         return new Promise((res, rej) => {
-            sshConn.exec(`${insBaseScript}`, (err, stream) => {
+            sshConn.exec(`${insDeployScriptPath}`, (err, stream) => {
                 if (err) throw err;
                 stream.on('close', (code, signal) => {
                     if (code === 0) {
@@ -257,11 +282,11 @@ module.exports = {
         } else {
             try {
                 // 检查是否有launch.lock文件
-                fs.statSync(lockFile);
+                fs.statSync(lockFilePath);
                 resultObj.msg = 'Server Already Launched';
             } catch (e) {
                 // 创建launch.lock文件
-                utils.elasticWrite(lockFile, `Launched at ${new Date().toISOString()}`);
+                utils.elasticWrite(lockFilePath, `Launched at ${new Date().toISOString()}`);
                 launchEntry();
                 resultObj.msg = 'Starting to deploy the server!';
                 resultObj.code = 0; // 0 代表交由异步处理

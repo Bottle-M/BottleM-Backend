@@ -10,7 +10,7 @@
         "instance_cpu": 2,
         "instance_memory": 4,
         "instance_bandwidth": 1,
-        "hour_price_range": [0,0.2],
+        "hour_price_range": [ 0, 0.2 ],
         "project_id": 1269603,
         "image_id": "img-rhstpokr",
         "system_disk": {
@@ -29,5 +29,8 @@
     "instance_run_timeout": 90000,
     "instance_side_sh": "set_up_base.sh",
     "ssh_ready_timeout": 20000,
-    "ssh_keep_alive_interval": 8000
+    "ssh_keep_alive_interval": 8000,
+    "ins_side": {
+        "ws_port": 9527
+    }
 }
