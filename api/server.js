@@ -15,10 +15,14 @@ const lockFile = configs['launchLockFile'];
 const keyFile = configs['loginKeyFile'];
 // instance_details实例详细信息文件路径
 const insDetailsFile = configs['insDetailsFile'];
-// 基地部署脚本的绝对路径
-const localBaseScript = path.join(__dirname, '../scripts/', apiConfigs['instance_side_sh']);
-// 在实例中脚本的绝对路径（务必写成绝对路径）
-const insBaseScript = '/root/base_deploy.sh';
+// websocket连接密匙（临时文件）的路径
+const wsKeyFile = configs['wsKeyFile'];
+// 所有Shell脚本所在目录
+const localScripts = path.join(__dirname, '../scripts/');
+// 所有脚本上传到实例中的哪里（绝对路径）
+const remoteScripts = '/root/';
+// 实例端部署脚本的绝对路径（务必写成绝对路径）
+const insBaseScript = remoteScripts + apiConfigs['instance_side_sh'];
 
 
 /**
@@ -185,21 +189,14 @@ function setUpBase(insId) {
         });
     }).then((sshConn) => {
         utils.setStatus(2102); // 开始部署实例上的“基地”
-        return new Promise((res, rej) => {
-            // 通过sftp传输部署脚本
-            sshConn.sftp((err, sftp) => {
-                if (err) throw err;
-                sftp.fastPut(localBaseScript, insBaseScript, {
-                    mode: 0o755 // 设定文件权限（八进制）
-                }, (err) => {
-                    if (err) throw err;
-                    outputer(1, 'Successfully delivered.');
-                    res(sshConn); // 传输完成
-                });
-            });
-        }).catch(err => {
-            return Promise.reject(`Failed to deliver the Deploy Script: ${err}`);
-        });
+        // 通过sftp传输部署脚本
+        return utils.fastUploadDir(sshConn, localScripts, remoteScripts)
+            .then(success => {
+                outputer(1, 'Successfully delivered.');
+                return Promise.resolve(sshConn);
+            }).catch(err => {
+                return Promise.reject(`Failed to deliver the Deploy Script: ${err}`);
+            })
     }).then((sshConn) => {
         utils.setStatus(2103); // 开始执行实例端部署脚本
         return new Promise((res, rej) => {

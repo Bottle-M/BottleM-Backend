@@ -12,6 +12,16 @@ const backendStatusPath = configs['backendStatusPath'];
 const insDetailsFile = configs['insDetailsFile'];
 const serverTemp = configs['serverTemp'];
 
+// 检查backend_status状态记录文件是否存在
+try {
+    fs.statSync(backendStatusPath);
+} catch (e) {
+    // 不存在就创建一个
+    fs.writeFileSync(backendStatusPath, JSON.stringify(configs['initialBackendStatus']), {
+        encoding: 'utf8'
+    });
+}
+
 /**
  * （异步）设置backend_status状态文件
  * @param {String|Array} keys 设置的键（可以是键组成的数组）
@@ -212,6 +222,75 @@ function elasticWrite(filePath, data) {
     return true;
 }
 
+/**
+ * 生成一定长度的随机字符串
+ * @param {Number} len 
+ * @returns {String} 随机字符串
+ */
+function randStr(len) {
+    let charList = 'ABCDEYZ$abcdefFGH#STUVWXghijk_lmnIJKLMNOPQR*opqr$stuvw_xy#z0123456*789',
+        charNum = charList.length,
+        finalStr = ''; // 结果字符串
+    for (let i = 0; i < len; i++) {
+        // 因为JavaScript随机数是伪随机，这里尽量使其更难以摸透
+        let randTimes = Math.floor(Math.random() * 6) + 1,
+            result = 0;
+        for (let j = 0; j < randTimes; j++) {
+            result = Math.floor(Math.random() * charNum);
+        }
+        finalStr += charList[result];
+    }
+    return finalStr;
+}
+
+/**
+ * （异步）通过SSH上传目录文件（暂不支持深层遍历）
+ * @param {ssh2Client} sshConn ssh2客户端对象
+ * @param {String} localDir 本地目录（绝对路径）
+ * @param {String} remoteDir 实例上的目录（绝对路径）
+ * @returns {Promise} 
+ */
+function fastUploadDir(sshConn, localDir, remoteDir) {
+    return ascFs.readdir(localDir).then(files => {
+        // 先扫描文件，并且创建Promise数组
+        let tasks = [];
+        // 创建sftp端
+        return new Promise((resolve, reject) => {
+            sshConn.sftp((err, sftp) => {
+                if (err) throw err;
+                files.forEach(file => {
+                    let localPath = path.join(localDir, file),
+                        remotePath = path.join(remoteDir, file)
+                            .replaceAll(path.sep, '/'); // 将分隔符转换为POSIX风格
+                    tasks.push(new Promise((res, rej) => {
+                        sftp.fastPut(localPath, remotePath, {
+                            mode: 0o755 // 设定文件权限（八进制）
+                        }, err => {
+                            if (err) {
+                                rej(err);
+                            } else {
+                                // 成功传输一个文件
+                                console.log(`Put:${localPath} -> ${remotePath}`);
+                                res('done');
+                            }
+                        });
+                    }));
+                });
+                // 等待所有Promise完成
+                Promise.all(tasks)
+                    .then((res) => {
+                        resolve(res);
+                    }).catch(e => {
+                        reject(e);
+                    })
+            });
+        });
+    }).catch(err => {
+        outputer(3, `Error occured while uploading directory ${localDir}: ${err}`);
+        return Promise.reject(err);
+    });
+}
+
 
 
 module.exports = {
@@ -224,5 +303,7 @@ module.exports = {
     safeDel: safeDel,
     elasticWrite: elasticWrite,
     cleanServerTemp: cleanServerTemp,
-    terminateOOCIns: terminateOOCIns
+    terminateOOCIns: terminateOOCIns,
+    randStr: randStr,
+    fastUploadDir: fastUploadDir
 }
