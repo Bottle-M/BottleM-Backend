@@ -6,11 +6,22 @@ const chalk = require('chalk');
 const path = require('path');
 const cloud = require('./qcloud');
 const configs = require('../basic/config-box');
+const apiConfigs = configs['apiConfigs'];
 const jsons = require('../basic/json-scaffold');
 const outputer = require('../basic/output');
 const backendStatusPath = configs['backendStatusPath'];
 const insDetailsFile = configs['insDetailsFile'];
 const serverTemp = configs['serverTemp'];
+const WebSocket = require('ws');
+const ssh2Client = require('ssh2').Client;
+// 实例端最初配置对象
+const initialInsSideConfigs = apiConfigs['ins_side'];
+// 实例端临时配置的文件名（如果这一项改了，InsSide的源码也要改）
+const insTempConfigName = 'ins_side_configs.tmp.json';
+// 实例端临时配置的绝对路径
+const insTempConfigPath = path.join(__dirname, `../${configs['serverTemp']}/${insTempConfigName}`);
+// 所有必要数据上传到实例中的哪里（绝对路径）
+const remoteDir = configs['remoteDir'];
 
 // 检查backend_status状态记录文件是否存在
 try {
@@ -288,6 +299,86 @@ function fastPutFiles(sshConn, fileArr) {
     });
 }
 
+/**
+ * （同步）创建实例端临时配置文件
+ * @returns {Array} [实例端临时配置文件绝对路径, 实例端临时配置文件名]
+ */
+function makeInsSideConfig() {
+    initialInsSideConfigs['secret_key'] = randStr(128); // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
+    elasticWrite(insTempConfigPath, JSON.stringify(initialInsSideConfigs));
+    return [insTempConfigPath, insTempConfigName];
+}
+
+/**
+ * （异步）连接实例并返回ssh连接对象
+ * @param {String} ip 实例IP
+ * @returns {Promise} resolve一个ssh2Client对象
+ * @note 如果省略ip，则会尝试获取servertemp中实例的IP
+ */
+function connectInsSSH(ip = '') {
+    let sshConn = new ssh2Client(), // 创建ssh客户端对象
+        keyFilePath = configs['loginKeyFile']; // 服务器登录密匙文件
+    ip = ip ? ip : getInsDetail('instance_ip');
+    if (!ip)
+        return Promise.reject('No instance IP found.');
+    return new Promise((res, rej) => {
+        sshConn.on('ready', () => {
+            // 连接成功
+            console.log('Successfully connected to the instance.');
+            res(sshConn); // 把连接传下去
+        }).on('error', err => {
+            rej(`Failed to connect to the instance: ${err}`);
+        }).connect({
+            host: ip,
+            port: 22,
+            username: 'root',
+            privateKey: fs.readFileSync(keyFilePath, 'utf8'),
+            readyTimeout: apiConfigs['ssh_ready_timeout'],
+            keepaliveInterval: apiConfigs['ssh_keep_alive_interval']
+        });
+    });
+}
+
+/**
+ * （异步）连接实例端（通过WebSocket）
+ * @returns {Promise} resolve一个WebSocket连接实例
+ */
+function connectInsSide() {
+    let insSideConfigs = apiConfigs['ins_side'],
+        remoteIp = getInsDetail('instance_ip'), // 获得实例IP
+        remotePort = insSideConfigs['ws_port']; // 获得WebSocket端口
+    return ascFs.stat(insTempConfigPath).then(res => {
+        // 临时配置文件已经存在
+        return Promise.resolve('done');
+    }, rej => {
+        // 临时配置文件不存在就创建一下，并且上传到实例端
+        makeInsSideConfig();
+        return connectInsSSH(remoteIp)
+            .then(conn => {
+                return fastPutFiles(conn, [
+                    [
+                        insTempConfigPath,
+                        toPosixSep(
+                            path.join(remoteDir, insTempConfigName)
+                        )
+                    ]
+                ]);
+            })
+    }).then(success => {
+        // 连接实例端
+        return new Promise((res, rej) => {
+            let ws = new WebSocket(`ws://${remoteIp}:${remotePort}`);
+            ws.on('open', () => {
+                // 连接成功
+                console.log(`Successfully made WS connection: ${remoteIp}:${remotePort}`);
+                res(ws);
+            }).on('error', err => {
+                rej(`Failed to connect to the instance side: ${err}`);
+            });
+        });
+    });
+}
+
 
 /**
  * 将绝对路径转换为POSIX风格
@@ -311,5 +402,8 @@ module.exports = {
     terminateOOCIns: terminateOOCIns,
     randStr: randStr,
     fastPutFiles: fastPutFiles,
-    toPosixSep: toPosixSep
+    toPosixSep: toPosixSep,
+    makeInsSideConfig: makeInsSideConfig,
+    connectInsSSH: connectInsSSH,
+    connectInsSide: connectInsSide
 }

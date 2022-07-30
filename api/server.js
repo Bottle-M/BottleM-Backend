@@ -8,27 +8,20 @@ const apiConfigs = configs['apiConfigs'];
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
 const utils = require('./server-utils');
-const ssh2Client = require('ssh2').Client;
 // launch.lock这个文件存在则代表服务器已经部署
 const lockFilePath = configs['launchLockFile'];
 // login.pem，服务器登录密匙文件
 const keyFilePath = configs['loginKeyFile'];
 // instance_details实例详细信息文件路径
 const insDetailsFilePath = configs['insDetailsFile'];
-// 实例端最初配置对象
-const initialInsSideConfigs = configs['initialInsSideConfigs'];
 // 所有Shell脚本所在目录
 const localScriptsDir = path.join(__dirname, '../scripts/');
 // 所有必要数据上传到实例中的哪里（绝对路径）
-const remoteDir = '/root/';
+const remoteDir = configs['remoteDir'];
 // 实例端部署脚本的绝对路径（务必写成绝对路径）
 const insDeployScriptPath = utils.toPosixSep(
     path.join(remoteDir, apiConfigs['instance_side_sh'])
 );
-// 实例端临时配置的文件名
-const insTempConfigName = 'ins_side_configs.tmp.json';
-// 实例端临时配置的绝对路径
-const insTempConfigPath = path.join(__dirname, `../${configs['serverTemp']}/${insTempConfigName}`);
 
 
 /**
@@ -87,7 +80,7 @@ function compareAndRun() {
             return latterWeight - formerWeight; // 降序，这样后面直接pop就行
         });
         if (insConfigs.length <= 0) {
-            // 设置状态码为2000，触发错误1000
+            // 如果没有可用实例，设置状态码为2000，触发错误1000
             return utils.setStatus(2000).then(res => {
                 // 没有可用的实例
                 return Promise.reject('No available instance (that meet the specified configuration)');
@@ -135,10 +128,16 @@ function compareAndRun() {
  * @note 这是第二个环节
  */
 function setUpBase(insId) {
-    let timer = null,
+    let statusCode = utils.getStatus('status_code'),
+        timer = null,
         alreadyWaitFor = 0, // 已经等待了多久（毫秒）
         queryInterval = 5000, // 每5秒查询一次
         sshConn = null; // 保存ssh连接
+    // 此部分用于resume
+    if (statusCode >= 2200) {
+        // 如果状态码大于等于2200，说明已经进入第三阶段
+        return Promise.resolve('done');
+    }
     return new Promise((res, rej) => {
         utils.setStatus(2100); // 等待实例开始运行
         timer = setInterval(() => {
@@ -176,28 +175,14 @@ function setUpBase(insId) {
         }, queryInterval);
     }).then((pubIp) => {
         utils.setStatus(2101); // 尝试通过SSH连接实例
-        sshConn = new ssh2Client(); // 创建ssh连接
-        return new Promise((res, rej) => {
-            sshConn.on('ready', () => {
-                // 连接成功
-                outputer(1, 'Successfully connected to the instance.');
-                res(sshConn); // 把连接传下去
-            }).on('error', err => {
-                rej(`Failed to connect to the instance: ${err}`);
-            }).connect({
-                host: pubIp,
-                port: 22,
-                username: 'root',
-                privateKey: fs.readFileSync(keyFilePath, 'utf8'),
-                readyTimeout: apiConfigs['ssh_ready_timeout'],
-                keepaliveInterval: apiConfigs['ssh_keep_alive_interval']
-            });
+        return utils.connectInsSSH(pubIp).then(conn => {
+            outputer(1, 'Successfully connected to the instance.');
+            return Promise.resolve(conn);
         });
     }).then((sshConn) => {
         utils.setStatus(2102); // 开始部署实例上的“基地”
         // 先创建实例端配置临时文件
-        initialInsSideConfigs['secret_key'] = utils.randStr(128); // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
-        utils.elasticWrite(insTempConfigPath, JSON.stringify(initialInsSideConfigs));
+        let [insTempConfigPath, insTempConfigName] = utils.makeInsSideConfig();
         // 通过sftp传输部署脚本
         return ascFs.readdir(localScriptsDir).then(fileArr => {
             // 将scripts目录下所有文件名和目录绝对路径连起来
@@ -230,7 +215,7 @@ function setUpBase(insId) {
                 stream.on('close', (code, signal) => {
                     if (code === 0) {
                         outputer(1, 'Successfully deployed.');
-                        res(sshConn);
+                        res('done');
                     } else {
                         rej(`Deploy Failed, code:${code}, signal:${signal}`);
                     }
@@ -251,6 +236,23 @@ function setUpBase(insId) {
 }
 
 /**
+ * 通过WebSocket和实例端进行连接，进行后续流程
+ * @return {Promise} 
+ * @note 这是第三个环节
+ */
+function insSideMonitor() {
+    utils.setStatus(2200); // 尝试连接实例端
+    console.log('resume to monitor');
+    return utils.connectInsSide().then((ws) => {
+        console.log('WS CONNECTED.');
+        ws.on('message', (msg) => {
+            console.log('received:'+msg);
+            ws.send('HEY THERE!');   
+        });
+    });
+}
+
+/**
  * 启动入口，单独写出来主要是为了resume的时候可以直接调用
  */
 function launchEntry() {
@@ -258,6 +260,9 @@ function launchEntry() {
         .then(insId => {
             // 开始在实例上建设“基地”
             return setUpBase(insId);
+        })
+        .then(res => {
+            return insSideMonitor();
         })
         .catch(err => {
             if (err) {

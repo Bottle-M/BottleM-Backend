@@ -29,6 +29,10 @@
     },
     "2103": {
         "msg": "Setting up the Instance Side",
+        "inform": false
+    },
+    "2200": {
+        "msg": "Connecting to the Instance Side...",
         "inform": true
     }
 }
