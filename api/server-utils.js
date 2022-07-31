@@ -336,6 +336,10 @@ function connectInsSSH(ip = '') {
             readyTimeout: apiConfigs['ssh_ready_timeout'],
             keepaliveInterval: apiConfigs['ssh_keep_alive_interval']
         });
+    }).catch(err => {
+        // 善后处理
+        sshConn.end();
+        return Promise.reject(err);
     });
 }
 

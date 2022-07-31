@@ -30,6 +30,7 @@ api_configs:
     ssh_keep_alive_interval - ssh保持连接的间隔时间（单位：毫秒）
     ins_side - 实例端的配置
         - ws_port 实例端websocket连接端口，整个部署需要和实例端进行合作
+        - remote_dir 实例端部署的脚本和基本配置文件的上传目标目录
 
 status_codes:
     每一项中：
