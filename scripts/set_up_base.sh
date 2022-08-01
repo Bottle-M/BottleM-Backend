@@ -9,8 +9,8 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-# （暂时）为临时配置文件创建软链接
-ln -s 'ins_side_configs.tmp.json' './BottleM-InsSide/ins_side_configs.tmp.json'
+# 可以为临时配置文件创建软链接，不过InsSide其实是会向上一层目录寻找配置文件的
+# ln -s 'ins_side_configs.tmp.json' './BottleM-InsSide/ins_side_configs.tmp.json'
 
 cd BottleM-InsSide
 

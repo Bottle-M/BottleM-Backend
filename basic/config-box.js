@@ -56,7 +56,7 @@ const launchLockFile = path.join(__dirname, `../${serverTemp}/launch.lock`);
 const loginKeyFile = path.join(__dirname, `../${serverTemp}/login.pem`);
 
 // 所有必要数据上传到实例中的哪里（绝对路径）
-const remoteDir = apiConfigs['ins_side']['remote_dir'];
+const remoteDir = apiConfigs['remote_dir'];
 
 /**
  * 读取某个配置文件

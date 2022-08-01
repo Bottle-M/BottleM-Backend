@@ -28,9 +28,9 @@ api_configs:
     instance_side_sh - BottleM实例“基地”部署的Shell脚本文件名，脚本存放在./scripts/中
     ssh_ready_timeout - ssh连接实例的超时时间（单位：毫秒）
     ssh_keep_alive_interval - ssh保持连接的间隔时间（单位：毫秒）
+    remote_dir 实例端部署的脚本和基本配置文件的上传目标目录
     ins_side - 实例端的配置
         - ws_port 实例端websocket连接端口，整个部署需要和实例端进行合作
-        - remote_dir 实例端部署的脚本和基本配置文件的上传目标目录
 
 status_codes:
     每一项中：
