@@ -2,7 +2,7 @@
 const httpServer = require('http');
 const outputer = require('./basic/output');
 const apiConfigs = require('./basic/config-box')['apiConfigs'];
-const router = require('./api/router').httpRouter;
+const router = require('./api/http-router');
 const auther = require('./basic/token-auth');
 
 let port = apiConfigs['api_port']; // 获取配置的端口号

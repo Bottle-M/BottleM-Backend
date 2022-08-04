@@ -1,7 +1,7 @@
 // HTTP API路由
 'use strict';
 const server = require('./server');
-const utils = require('./server-utils')
+const utils = require('./server-utils');
 
 // 检查是否意外重启
 let currentStatus = utils.getStatus('status_code');
@@ -72,7 +72,7 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod) {
  * @param {Object} resultObj 返回数据的对象
  * @return 返回一个对象，包含了请求的结果
  */
-function httpRouter(reqObj, resultObj) {
+module.exports = function (reqObj, resultObj) {
     let { rPath, params, method } = reqObj;
     if (rPath[1]) {
         switch (rPath[0]) {
@@ -93,17 +93,3 @@ function httpRouter(reqObj, resultObj) {
     }
     return resultObj;
 };
-
-/**
- * 
- * @param {Object} recvObj 接收到的数据对象
- * @param {*} ws 
- */
-function wsRouter(recvObj,ws){
-
-}
-
-module.exports = {
-    httpRouter,
-    wsRouter
-}

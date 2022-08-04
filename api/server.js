@@ -7,8 +7,8 @@ const configs = require('../basic/config-box');
 const apiConfigs = configs['apiConfigs'];
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
-const { wsRouter } = require('./router');
 const utils = require('./server-utils');
+const wsHandler=require('./ws-handler');
 // launch.lock这个文件存在则代表服务器已经部署
 const lockFilePath = configs['launchLockFile'];
 // login.pem，服务器登录密匙文件
@@ -249,7 +249,7 @@ function insSideMonitor() {
         ws.send(utils.buildInsSideReq('status_sync'));
         ws.on('message', (msg) => {
             let parsed = JSON.parse(msg);
-            wsRouter(parsed, ws);
+            wsHandler(parsed, ws);
         })
             .on('ping', utils.wsHeartBeat) // 心跳监听
             .on('close', (code, reason) => { // 断开连接
