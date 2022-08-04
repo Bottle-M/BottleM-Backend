@@ -310,6 +310,14 @@ function makeInsSideConfig() {
 }
 
 /**
+ * 获得目前连接实例端WebSocket的密匙
+ * @returns {String} 
+ */
+function getInsSideKey() {
+    return initialInsSideConfigs['secret_key'];
+}
+
+/**
  * （异步）连接实例并返回ssh连接对象
  * @param {String} ip 实例IP
  * @returns {Promise} resolve一个ssh2Client对象
@@ -344,6 +352,40 @@ function connectInsSSH(ip = '') {
 }
 
 /**
+ * 监听WebSocket连接是否正常
+ */
+function wsHeartBeat() {
+    // 获得最大等待时间
+    let maxWaitTime = apiConfigs['ins_side']['ws_ping_timeout'];
+    clearTimeout(this.pingTimeout);
+    this.pingTimeout = setTimeout(() => {
+        this.terminate(); // 连接失效，强制销毁连接
+    }, maxWaitTime + 1000); // 多宽松一秒
+}
+
+/**
+ * 和wsHeartBeat配套使用，用于终止计时器
+ */
+function wsTimerClear() {
+    clearTimeout(this.pingTimeout);
+}
+
+/**
+ * 构造实例端请求（通过WebSocket发送的数据）
+ * @param {String} act 操作
+ * @param {Object} data 传输的数据（默认为null
+ * @returns {String} 返回JSON字符串
+ */
+function buildInsSideReq(act, data = null) {
+    let req = {
+        'key': initialInsSideConfigs['secret_key'],
+        'action': act,
+        'data': data
+    }
+    return JSON.stringify(req);
+}
+
+/**
  * （异步）连接实例端（通过WebSocket）
  * @returns {Promise} resolve一个WebSocket连接实例
  */
@@ -375,12 +417,19 @@ function connectInsSide() {
             ws.on('open', () => {
                 // 连接成功
                 console.log(`Successfully made WS connection: ${remoteIp}:${remotePort}`);
+                wsHeartBeat.call(ws); // 激发一次心跳
                 res(ws);
             }).on('error', err => {
                 rej(`Failed to connect to the instance side: ${err}`);
             });
         });
-    });
+    }).then(ws => {
+        // 连接上websocket后将本地的临时配置文件删除
+        return ascFs.rm(insTempConfigPath).then(res => {
+            console.log('Deleted local temp config file.');
+            return Promise.resolve(ws);
+        });
+    })
 }
 
 
@@ -394,20 +443,24 @@ function toPosixSep(origin) {
 }
 
 module.exports = {
-    updateBackendStatus: updateBackendStatus,
-    setStatus: setStatus,
-    getStatus: getStatus,
-    getInsDetail: getInsDetail,
-    setInsDetail: setInsDetail,
-    errorHandler: errorHandler,
-    safeDel: safeDel,
-    elasticWrite: elasticWrite,
-    cleanServerTemp: cleanServerTemp,
-    terminateOOCIns: terminateOOCIns,
-    randStr: randStr,
-    fastPutFiles: fastPutFiles,
-    toPosixSep: toPosixSep,
-    makeInsSideConfig: makeInsSideConfig,
-    connectInsSSH: connectInsSSH,
-    connectInsSide: connectInsSide
+    updateBackendStatus,
+    setStatus,
+    getStatus,
+    getInsDetail,
+    setInsDetail,
+    errorHandler,
+    safeDel,
+    elasticWrite,
+    cleanServerTemp,
+    terminateOOCIns,
+    randStr,
+    fastPutFiles,
+    toPosixSep,
+    makeInsSideConfig,
+    getInsSideKey,
+    connectInsSSH,
+    connectInsSide,
+    wsHeartBeat,
+    wsTimerClear,
+    buildInsSideReq
 }

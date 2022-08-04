@@ -7,6 +7,7 @@ const configs = require('../basic/config-box');
 const apiConfigs = configs['apiConfigs'];
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
+const { wsRouter } = require('./router');
 const utils = require('./server-utils');
 // launch.lock这个文件存在则代表服务器已经部署
 const lockFilePath = configs['launchLockFile'];
@@ -242,13 +243,20 @@ function setUpBase(insId) {
  */
 function insSideMonitor() {
     utils.setStatus(2200); // 尝试连接实例端
-    console.log('resume to monitor');
     return utils.connectInsSide().then((ws) => {
-        console.log('WS CONNECTED.');
+        outputer(1, 'WebSocket Connected.');
+        // 请求同步状态，实例端状态从2201开始
+        ws.send(utils.buildInsSideReq('status_sync'));
         ws.on('message', (msg) => {
-            console.log('received:'+msg);
-            ws.send('HEY THERE!');   
-        });
+            let parsed = JSON.parse(msg);
+            wsRouter(parsed, ws);
+        })
+            .on('ping', utils.wsHeartBeat) // 心跳监听
+            .on('close', (code, reason) => { // 断开连接
+                utils.wsTimerClear.call(ws); // 清空心跳监听计时器
+                outputer(1, `WebSocket Connection Closed: ${code}, ${reason}`);
+
+            });
     });
 }
 

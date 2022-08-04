@@ -67,12 +67,12 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod) {
 }
 
 /**
- * API路由
+ * HTTP API路由
  * @param {Object} reqObj 包含请求数据的对象 
  * @param {Object} resultObj 返回数据的对象
  * @return 返回一个对象，包含了请求的结果
  */
-module.exports = function (reqObj, resultObj) {
+function httpRouter(reqObj, resultObj) {
     let { rPath, params, method } = reqObj;
     if (rPath[1]) {
         switch (rPath[0]) {
@@ -93,3 +93,17 @@ module.exports = function (reqObj, resultObj) {
     }
     return resultObj;
 };
+
+/**
+ * 
+ * @param {Object} recvObj 接收到的数据对象
+ * @param {*} ws 
+ */
+function wsRouter(recvObj,ws){
+
+}
+
+module.exports = {
+    httpRouter,
+    wsRouter
+}

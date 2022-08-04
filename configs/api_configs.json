@@ -30,8 +30,9 @@
     "instance_side_sh": "set_up_base.sh",
     "ssh_ready_timeout": 20000,
     "ssh_keep_alive_interval": 8000,
-    "remote_dir": "/root/",
     "ins_side": {
-        "ws_port": 9526
+        "ws_port": 9527,
+        "ws_ping_timeout": 30000,
+        "remote_dir": "/root/"
     }
 }
