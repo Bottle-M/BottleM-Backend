@@ -25,6 +25,11 @@ const clientConfig = {
         },
     },
 };
+// 相关的环境变量
+const environment = {
+    'QCLOUD_SECRET_ID': qcloudSecret['secretId'],
+    'QCLOUD_SECRET_KEY': qcloudSecret['secretKey']
+};
 
 const client = new CvmClient(clientConfig);
 
@@ -357,6 +362,7 @@ function describeInstance(insId = '') {
 }
 
 module.exports = {
+    environment,
     filterInsType: filterInsType,
     generateKey: generateKey,
     deleteKey: deleteKey,

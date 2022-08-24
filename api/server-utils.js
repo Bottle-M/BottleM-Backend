@@ -299,12 +299,18 @@ function fastPutFiles(sshConn, fileArr) {
     });
 }
 
+
 /**
  * （同步）创建实例端临时配置文件
  * @returns {Array} [实例端临时配置文件绝对路径, 实例端临时配置文件名]
  */
 function makeInsSideConfig() {
-    initialInsSideConfigs['secret_key'] = randStr(128); // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
+    // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
+    initialInsSideConfigs['secret_key'] = randStr(128);
+    // 实例端状态码配置
+    initialInsSideConfigs['env'] = Object.assign({
+        'DATA_DIR': remoteDir // 实例端数据目录
+    }, cloud.environment); // cloud模块定义的环境变量（包含SECRET）
     elasticWrite(insTempConfigPath, JSON.stringify(initialInsSideConfigs));
     return [insTempConfigPath, insTempConfigName];
 }
@@ -355,6 +361,7 @@ function connectInsSSH(ip = '') {
  * 监听WebSocket连接是否正常
  */
 function wsHeartBeat() {
+    console.log('ping');
     // 获得最大等待时间
     let maxWaitTime = apiConfigs['ins_side']['ws_ping_timeout'];
     clearTimeout(this.pingTimeout);
@@ -386,13 +393,61 @@ function buildInsSideReq(act, data = null) {
 }
 
 /**
+ * 通过SFTP创建还不存在的多级目录
+ * @param {String} absPath 要检查的目录的绝对路径（一定以/开头）
+ * @note 仅支持POSIX风格的分隔符
+ */
+function createMultiDirs(absPath) {
+    let remoteIp = getInsDetail('instance_ip'), // 获得实例IP
+        pathArr = absPath.split('/').filter(x => x !== ''), // 分割路径
+        tasks = []; // 创建目录的Promise任务数组
+    return connectInsSSH(remoteIp).then(conn => {
+        return new Promise((resolve, reject) => {
+            conn.sftp((err, sftp) => {
+                if (err) {
+                    reject(err);
+                    return;
+                }
+                for (let i = 0, len = pathArr.length; i < len; i++) {
+                    let currentPath = `/${pathArr.slice(0, i + 1).join('/')}`;
+                    tasks.push(new Promise((res, rej) => {
+                        sftp.opendir(currentPath, (err, handle) => {
+                            if (err) {
+                                sftp.mkdir(currentPath, (err) => {
+                                    if (err) {
+                                        rej(err);
+                                        return;
+                                    }
+                                    res();
+                                    console.log(`Dir created: ${currentPath}`);
+                                });
+                            } else {
+                                res();
+                            }
+                        })
+                    }));
+                }
+                Promise.all(tasks)
+                    .then(success => {
+                        resolve();
+                    })
+                    .catch(err => {
+                        reject(err);
+                    });
+            });
+        }).catch(err => {
+            outputer(3, `Error occured while making dirs through SFTP: ${err}`);
+        })
+    });
+}
+
+/**
  * （异步）连接实例端（通过WebSocket）
  * @returns {Promise} resolve一个WebSocket连接实例
  */
 function connectInsSide() {
-    let insSideConfigs = apiConfigs['ins_side'],
-        remoteIp = getInsDetail('instance_ip'), // 获得实例IP
-        remotePort = insSideConfigs['ws_port']; // 获得WebSocket端口
+    let remoteIp = getInsDetail('instance_ip'), // 获得实例IP
+        remotePort = apiConfigs['ins_side']['ws_port']; // 获得WebSocket端口
     return ascFs.stat(insTempConfigPath).then(res => {
         // 临时配置文件已经存在
         return Promise.resolve('done');
@@ -462,5 +517,6 @@ module.exports = {
     connectInsSide,
     wsHeartBeat,
     wsTimerClear,
-    buildInsSideReq
+    buildInsSideReq,
+    createMultiDirs
 }

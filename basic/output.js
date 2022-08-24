@@ -4,8 +4,7 @@ const chalk = require('chalk');
 const { promises: fs, statSync, mkdirSync, writeFileSync } = require('fs');
 const path = require('path');
 // 载入配置
-const configs = require('./config-box');
-const apiConfigs = configs['apiConfigs'];
+const apiConfigs = require('./config-box')['apiConfigs'];
 // 从配置中获得日志绝对目录（默认为./api_logs）
 const logDir = path.join(__dirname, '..', apiConfigs['logs_dir'] || './api_logs');
 // .logstatus日志状态文件

@@ -8,7 +8,7 @@ const apiConfigs = configs['apiConfigs'];
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
 const utils = require('./server-utils');
-const wsHandler=require('./ws-handler');
+const wsHandler = require('./ws-handler');
 // launch.lock这个文件存在则代表服务器已经部署
 const lockFilePath = configs['launchLockFile'];
 // login.pem，服务器登录密匙文件
@@ -21,7 +21,7 @@ const localScriptsDir = path.join(__dirname, '../scripts/');
 const remoteDir = configs['remoteDir'];
 // 实例端部署脚本的绝对路径（务必写成绝对路径）
 const insDeployScriptPath = utils.toPosixSep(
-    path.join(remoteDir, apiConfigs['instance_side_sh'])
+    path.join(remoteDir, apiConfigs['instance_deploy_sh'])
 );
 
 
@@ -200,11 +200,15 @@ function setUpBase(insId) {
                     path.join(remoteDir, insTempConfigName)
                 )
             ]);
-            return utils.fastPutFiles(sshConn, fileArr, remoteDir)
+            // 检查并创建remoteDir目录
+            return utils.createMultiDirs(remoteDir)
+                .then(success => {
+                    return utils.fastPutFiles(sshConn, fileArr);
+                })
                 .then(success => {
                     outputer(1, 'Successfully delivered.');
                     return Promise.resolve(sshConn);
-                })
+                });
         }).catch(err => {
             return Promise.reject(`Failed to deliver the Deploy Scripts: ${err}`);
         });
@@ -212,7 +216,10 @@ function setUpBase(insId) {
         utils.setStatus(2103); // 开始执行实例端部署脚本
         return new Promise((res, rej) => {
             sshConn.exec(`${insDeployScriptPath}`, (err, stream) => {
-                if (err) throw err;
+                if (err) {
+                    rej(err);
+                    return;
+                }
                 stream.on('close', (code, signal) => {
                     if (code === 0) {
                         outputer(1, 'Successfully deployed.');
@@ -244,20 +251,34 @@ function setUpBase(insId) {
 function insSideMonitor() {
     utils.setStatus(2200); // 尝试连接实例端
     return utils.connectInsSide().then((ws) => {
-        outputer(1, 'WebSocket Connected.');
-        // 请求同步状态，实例端状态从2201开始
-        ws.send(utils.buildInsSideReq('status_sync'));
-        ws.on('message', (msg) => {
-            let parsed = JSON.parse(msg);
-            wsHandler(parsed, ws);
-        })
-            .on('ping', utils.wsHeartBeat) // 心跳监听
-            .on('close', (code, reason) => { // 断开连接
-                utils.wsTimerClear.call(ws); // 清空心跳监听计时器
-                outputer(1, `WebSocket Connection Closed: ${code}, ${reason}`);
-
-            });
-    });
+        return new Promise((res, rej) => {
+            outputer(1, 'WebSocket Connected.');
+            // 请求同步状态，实例端状态从2201开始
+            ws.send(utils.buildInsSideReq('status_sync'));
+            ws.on('message', (msg) => {
+                let parsed = JSON.parse(msg);
+                wsHandler(parsed, ws);
+            })
+                .on('ping', utils.wsHeartBeat.bind(ws)) // 心跳监听
+                .on('close', (code, reason) => { // 断开连接
+                    utils.wsTimerClear.call(ws); // 清空心跳监听计时器
+                    outputer(1, `WebSocket Connection Closed: ${code}, Reason:${reason}`);
+                    ws.terminate(); // 中止连接
+                    res(true); // 这里true代表尝试重新连接
+                })
+                .on('error', (err) => {
+                    outputer(3, `WebSocket Error: ${err}`);
+                });
+        });
+    }).then(reconnect => {
+        if (reconnect) {
+            // 普通的连接中断，重连一下
+            return insSideMonitor();
+        } else {
+            // 实例端退出，服务器流程走完，退出monitor
+            return Promise.resolve('InsSide passed away.');
+        }
+    })
 }
 
 /**

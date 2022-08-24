@@ -9,11 +9,12 @@ if [[ $? -ne 0 ]]; then
     exit 1
 fi
 
-# 可以为临时配置文件创建软链接，不过InsSide其实是会向上一层目录寻找配置文件的
-# ln -s 'ins_side_configs.tmp.json' './BottleM-InsSide/ins_side_configs.tmp.json'
-
 cd BottleM-InsSide
 
 npm install
 
-forever start index.js 2>&1
+# 使用--data或-d选项指定数据目录，Backend会往这个目录中传输文件
+
+screen -dmS bottlem node index.js --data /root/baseData
+
+#forever start index.js --data /root/baseData 2>&1

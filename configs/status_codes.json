@@ -33,6 +33,10 @@
     },
     "2200": {
         "msg": "Connecting to the Instance Side...",
+        "inform": false
+    },
+    "2201": {
+        "msg": "Instance Side set up successfully",
         "inform": true
     }
 }

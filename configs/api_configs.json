@@ -27,12 +27,15 @@
         "max_spot_price": 0.3
     },
     "instance_run_timeout": 90000,
-    "instance_side_sh": "set_up_base.sh",
+    "instance_deploy_sh": "set_up_base.sh",
     "ssh_ready_timeout": 20000,
     "ssh_keep_alive_interval": 8000,
     "ins_side": {
         "ws_port": 9527,
         "ws_ping_timeout": 30000,
-        "remote_dir": "/root/"
+        "remote_dir": "/root/baseData",
+        "deploy_shells": [
+            ""
+        ]
     }
 }
