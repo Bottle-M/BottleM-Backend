@@ -37,8 +37,12 @@ api_configs:
             【默认】30000
         - remote_dir 实例端部署的脚本和基本配置文件的上传目标目录，必须是绝对路径
             【默认】'/root/baseData'
-    max_ws_connect_retry - 最多允许连续多少次websocket连接失败
-        【默认】3
+        - deploy_scripts 部署Minecraft服务器的脚本文件，是一个数组，从头至尾执行
+        - packed_server_dir Minecraft服务器文件压缩包所在目录，无论是刚刚开始部署的解包，还是服务器关闭后的打包，都是在这个目录内进行的，另外程序还会扫描该目录内压缩包总大小，在服务器关闭打包后进行比对
+            【默认】'/root/serverPacked'
+        - script_exec_dir 上述shell脚本文件的执行所在目录(cwd)
+            【默认】'/root'
+
 
 status_codes:
     每一项中：
@@ -48,6 +52,7 @@ status_codes:
 
 除了instance_deploy_sh外（因为受ssh配置的AcceptEnv限制），所有shell脚本执行时都有环境变量：
     DATA_DIR - 实例端数据目录，用于存放数据文件
+    PACK_DIR - 打包后的服务端的目录
     qcloud模块定义的环境变量：
         QCLOUD_SECRET_ID - 密钥ID
         QCLOUD_SECRET_KEY - 密钥KEY

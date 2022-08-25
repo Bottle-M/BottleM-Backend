@@ -34,8 +34,11 @@
         "ws_port": 9527,
         "ws_ping_timeout": 30000,
         "remote_dir": "/root/baseData",
-        "deploy_shells": [
-            ""
-        ]
+        "deploy_scripts": [
+            "setup_cos.sh",
+            "get_server.sh"
+        ],
+        "packed_server_dir": "/root/serverPacked",
+        "script_exec_dir": "/root"
     }
 }
