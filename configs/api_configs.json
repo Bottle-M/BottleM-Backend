@@ -36,9 +36,18 @@
         "remote_dir": "/root/baseData",
         "deploy_scripts": [
             "setup_cos.sh",
-            "get_server.sh"
+            "get_server.sh",
+            "launch_server.sh"
         ],
+        "backup_scripts":{
+            "get_fragments": "get_fragments.sh"
+        },
+        "backup_target_dir": [
+            "/root/minecraft/world"
+        ],
+        "backup_fragments_dir": "/root/fragments",
         "packed_server_dir": "/root/serverPacked",
+        "mc_server_dir": "/root/minecraft",
         "script_exec_dir": "/root"
     }
 }

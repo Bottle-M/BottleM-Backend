@@ -309,7 +309,10 @@ function makeInsSideConfig() {
     initialInsSideConfigs['secret_key'] = randStr(128);
     // 实例端状态码配置
     initialInsSideConfigs['env'] = Object.assign({
-        'DATA_DIR': remoteDir // 实例端数据目录
+        'DATA_DIR': remoteDir, // 实例端数据目录
+        'PACK_DIR': initialInsSideConfigs['packed_server_dir'], // 服务端打包后的目录
+        'FRAGMENTS_DIR': initialInsSideConfigs['backup_fragments_dir'], // 增量备份碎片目录
+        'MC_DIR': initialInsSideConfigs['mc_server_dir'] // Minecraft服务端目录
     }, cloud.environment); // cloud模块定义的环境变量（包含SECRET）
     elasticWrite(insTempConfigPath, JSON.stringify(initialInsSideConfigs));
     return [insTempConfigPath, insTempConfigName];
