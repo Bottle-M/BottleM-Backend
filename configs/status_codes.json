@@ -37,6 +37,10 @@
     },
     "2201": {
         "msg": "Instance Side set up successfully",
+        "inform": false
+    },
+    "2202": {
+        "msg": "Deploying server...",
         "inform": true
     }
 }

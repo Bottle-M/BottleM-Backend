@@ -46,11 +46,12 @@ try {
 
 /**
  * 将日志写入文件
- * @param {*} log 待写入内容 
+ * @param {String} log 待写入内容 
+ * @param {Number} time 日志时间戳（不指定则自动获取当前时间）
  */
-function writeLogs(log) {
+function writeLogs(log, time = 0) {
     let currentLog = path.join(logDir, 'latest.log'), // 当前日志文件
-        currentDate = new Date();
+        currentDate = time ? new Date(time) : new Date();
     // 读取日志状态文件
     fs.readFile(statusFile, { encoding: 'utf8' }).then(async (res) => {
         let [lineNum, logsNum] = res.split(' '); // 获得行数和日志数量
@@ -125,12 +126,13 @@ function writeLogs(log) {
 }
 /**
  * 向控制台输出消息
- * @param {*} level 消息等级
- * @param {*} msg 消息内容
- * @param {*} writeInLog 是否写入日志（默认true）
+ * @param {Number} level 消息等级
+ * @param {String} msg 消息内容
+ * @param {Boolean} writeInLog 是否写入日志（默认true）
+ * @param {Number} time 日志时间戳（不指定则自动获取当前时间）
  * @note 1:普通提示 2:警告 3:错误
  */
-function output(level, msg, writeInLog = true) {
+function output(level, msg, writeInLog = true, time = 0) {
     switch (level) {
         case 1:
             console.log(chalk.green(msg));
@@ -145,7 +147,7 @@ function output(level, msg, writeInLog = true) {
             break;
     }
     if (writeInLog)
-        writeLogs(msg); // 写入日志
+        writeLogs(msg, 0); // 写入日志
 }
 
 module.exports = output;

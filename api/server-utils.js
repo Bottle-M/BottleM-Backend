@@ -182,8 +182,9 @@ function cleanServerTemp() {
 /**
  * 发生错误时进行的工作
  * @param {String} msg 错误信息
+ * @param {Number} time 日志时间戳（不指定则自动获取当前时间）
  */
-function errorHandler(msg) {
+function errorHandler(msg, time = 0) {
     // 错误信息
     let errMsg = `Fatal:${msg}`,
         errTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }); // 错误发生的时间
@@ -194,12 +195,12 @@ function errorHandler(msg) {
         // 特殊处理2000对应的错误: 1000错误代表没有合适的实例
         if (errCode === 1000) {
             // 输出错误，记入日志，等级：警告
-            outputer(2, errMsg);
+            outputer(2, errMsg, true, time);
             // 删除部署锁定文件
             safeDel(lockFile);
         } else {
             // 输出错误，记入日志，等级：错误
-            outputer(3, errMsg);
+            outputer(3, errMsg, true, time);
             // 标记状态：错误
             updateBackendStatus(['status_msg', 'status_code', 'last_err', 'last_err_time'], [errMsg, errCode, errMsg, errTime]);
         }
