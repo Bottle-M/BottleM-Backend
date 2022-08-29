@@ -20,6 +20,8 @@ const initialInsSideConfigs = apiConfigs['ins_side'];
 const insTempConfigName = 'ins_side_configs.tmp.json';
 // 实例端临时配置的绝对路径
 const insTempConfigPath = path.join(__dirname, `../${configs['serverTemp']}/${insTempConfigName}`);
+// Minecraft服务器信息文件的绝对路径
+const minecraftServerInfoPath = path.join(__dirname, `../${configs['serverTemp']}/mc_server_info.json`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
 const remoteDir = configs['remoteDir'];
 
@@ -166,7 +168,7 @@ function safeDel(filePath) {
  * （同步）清空实例临时文件
  * @returns 布尔值true/false 代表 是/否 成功
  */
-function cleanServerTemp() {
+function clearServerTemp() {
     try {
         let files = fs.readdirSync(serverTemp);
         files.forEach((tmp) => {
@@ -211,9 +213,9 @@ function errorHandler(msg, time = 0) {
 
 /**
  * （同步）写入文件（自动创建目录）
- * @param {*} filePath 文件路径
- * @param {*} data 写入的数据
- * @returns 布尔值，代表是否成功
+ * @param {String} filePath 文件路径
+ * @param {String} data 写入的数据
+ * @returns {Boolean} 布尔值，代表是否成功
  */
 function elasticWrite(filePath, data) {
     let dirPath = path.dirname(filePath); // 获得文件目录
@@ -300,6 +302,31 @@ function fastPutFiles(sshConn, fileArr) {
     });
 }
 
+/**
+ * 设置Minecraft服务器的相关信息
+ * @param {String|Array} keys 设置的键（可以是键组成的数组）
+ * @param {String|Array} values 设置的内容（可以是内容组成的数组）
+ */
+function setMCInfo(keys, values) {
+    try {
+        fs.statSync(minecraftServerInfoPath); // 检查文件是否存在
+    } catch (e) {
+        elasticWrite(minecraftServerInfoPath, JSON.stringify({
+            'players_online': 0
+        })); // 创建文件
+    }
+    jsons.ascSet(minecraftServerInfoPath, keys, values);
+}
+
+/**
+ * 获得Minecraft服务器的相关信息
+ * @param {String} key 获取的值对应的键名
+ * @returns 对应的信息值
+ */
+function getMCInfo(key) {
+    let infoObj = jsons.scRead(minecraftServerInfoPath); // 读取包含服务器信息的对象
+    return infoObj[key];
+}
 
 /**
  * （同步）创建实例端临时配置文件
@@ -510,7 +537,7 @@ module.exports = {
     errorHandler,
     safeDel,
     elasticWrite,
-    cleanServerTemp,
+    clearServerTemp,
     terminateOOCIns,
     randStr,
     fastPutFiles,
@@ -522,5 +549,7 @@ module.exports = {
     wsHeartBeat,
     wsTimerClear,
     buildInsSideReq,
-    createMultiDirs
+    createMultiDirs,
+    setMCInfo,
+    getMCInfo
 }

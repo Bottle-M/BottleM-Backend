@@ -63,7 +63,7 @@ function compareAndRun() {
                     outputer(2, `Failed to terminate instance ${insId}: ${err}`);
                 });
             // 删除实例临时文件
-            utils.cleanServerTemp();
+            utils.clearServerTemp();
             // 恢复状态为idling
             utils.setStatus(2000);
             // resume部分为达到中止效果，需要reject null
@@ -250,19 +250,24 @@ function setUpBase(insId) {
  */
 function insSideMonitor() {
     utils.setStatus(2200); // 尝试连接实例端
+    utils.setMCInfo('launch_time', Date.now()); // 创建Minecraft服务器信息文件
     return utils.connectInsSide().then((ws) => {
         return new Promise((res, rej) => {
             outputer(1, 'WebSocket Connected.');
             // 请求同步状态，实例端状态从2201开始
             ws.send(utils.buildInsSideReq('status_sync'));
             ws.on('message', (msg) => {
-                let parsed = JSON.parse(msg);
-                wsHandler(parsed, ws);
+                // 传来的数据不能为空
+                if (!(/^\s*$/.test(msg))) {
+                    let parsed = JSON.parse(msg);
+                    wsHandler.router(parsed, ws);
+                }
             })
                 .on('ping', utils.wsHeartBeat.bind(ws)) // 心跳监听
                 .on('close', (code, reason) => { // 断开连接
                     utils.wsTimerClear.call(ws); // 清空心跳监听计时器
                     outputer(1, `WebSocket Connection Closed: ${code}, Reason:${reason}`);
+                    wsHandler.revokeWS(); // 设置主连接为null
                     ws.terminate(); // 中止连接
                     res(true); // 这里true代表尝试重新连接
                 })

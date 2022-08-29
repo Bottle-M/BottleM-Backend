@@ -42,5 +42,13 @@
     "2202": {
         "msg": "Deploying server...",
         "inform": true
+    },
+    "2203": {
+        "msg": "Waiting for the Minecraft Server to be ready...",
+        "inform": false
+    },
+    "2300": {
+        "msg": "Server deployed successfully!",
+        "inform": true
     }
 }

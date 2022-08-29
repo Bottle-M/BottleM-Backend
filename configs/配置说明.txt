@@ -64,6 +64,15 @@ api_configs:
             必须是绝对路径
             【默认】'/root'
 
+        - mc_server_launch_timeout Minecraft服务器启动的超时时间（单位：毫秒），这个时间从成功执行完所有部署脚本deploy_scripts后开始计算
+            【默认】90000
+
+        - server_idling_timeout Minecraft最多闲置多长时间后自动关闭（单位：毫秒）
+            【默认】900000
+
+        - player_leaver_reset_timeout 玩家离开后是否重置上述倒计时
+            【默认】true
+
 
 status_codes:
     每一项中：
@@ -89,3 +98,5 @@ CVM查询创建退回,密匙创建/销毁相关,COS访问
 secretId和secretKey（当然填了也不是不行）
 
 文档中一定要写整个启动到回收的过程，免得以后你自己都看不懂了
+
+实例端InsSide在启动Minecraft服务器后可能内存溢出，暂未找到原因，一定要在守护模式下启动。

@@ -48,6 +48,9 @@
         "backup_fragments_dir": "/root/fragments",
         "packed_server_dir": "/root/serverPacked",
         "mc_server_dir": "/root/minecraft",
-        "script_exec_dir": "/root"
+        "script_exec_dir": "/root",
+        "mc_server_launch_timeout": 90000,
+        "server_idling_timeout": 900000,
+        "player_leaver_reset_timeout": true
     }
 }
