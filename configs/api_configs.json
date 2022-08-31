@@ -39,19 +39,28 @@
             "get_server.sh",
             "launch_server.sh"
         ],
-        "backup_scripts":{
-            "get_fragments": "get_fragments.sh"
+        "server_scripts": {
+            "check_process": "check_progress.sh"
         },
-        "backup_target_dir": [
-            "/root/minecraft/world"
-        ],
-        "backup_fragments_dir": "/root/fragments",
+        "incremental_backup": {
+            "output_dir":"/root/increments",
+            "scripts": {
+                "get_fragments": "get_fragments.sh"
+            },
+            "target_dir": [
+                "/root/minecraft/world"
+            ]
+        },
+        "server_ending_scripts": {
+            "pack": "compress_and_pack.sh",
+            "upload": "upload_server.sh"
+        },
         "packed_server_dir": "/root/serverPacked",
         "mc_server_dir": "/root/minecraft",
         "script_exec_dir": "/root",
         "mc_server_launch_timeout": 90000,
         "server_idling_timeout": 900000,
-        "player_leaver_reset_timeout": true,
+        "player_login_reset_timeout": true,
         "check_packed_server_size": 90
     }
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-# 抓取服务端
+# 抓取服务端压缩包
 
 # 压缩包列表文件
 FILE_LIST=$PACK_DIR/filelist.txt

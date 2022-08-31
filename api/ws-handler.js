@@ -57,6 +57,13 @@ function router(recvObj, ws) {
                 }
             }
             break;
+        case 'players_num': // 同步玩家数量
+            {
+                let { online, max } = recvObj; // 获得玩家数量
+                console.log(`Online: ${online}/${max}`); // 输出玩家数量
+                utils.setMCInfo(['players_online', 'players_max'], [online, max]); // 记录玩家数量
+            }
+            break;
     }
 }
 

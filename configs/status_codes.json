@@ -50,5 +50,17 @@
     "2300": {
         "msg": "Server deployed successfully!",
         "inform": true
+    },
+    "2400": {
+        "msg": "Server closing: packing up the server...",
+        "inform": false
+    },
+    "2401": {
+        "msg": "Server closing: uploading the compressed packs...",
+        "inform": false
+    },
+    "2500": {
+        "msg": "Goodbye, see you next time!",
+        "inform": false
     }
 }

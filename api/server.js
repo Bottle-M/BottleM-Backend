@@ -40,39 +40,16 @@ function compareAndRun() {
         if (statusCode >= 2100) { // 上次终止时进入了下一阶段，直接resolve
             return insId ? Promise.resolve(insId) : Promise.reject('No instance ID found, unable to resume');
         } else { // 上次终止时仍然在进行创建密匙对/实例工作
-            outputer(1, 'Cleaning remains of the incomplete deployment.');
-            let cleanTasks = []; // 清理任务Promises
-            // 如果密匙对已经创建，就销毁密匙对
-            if (keyId) {
-                cleanTasks.push(
-                    cloud.elasticDelKey(keyId).then(res => {
-                        outputer(1, `Key ${keyId} was deleted.`);
-                    }),
-                    // 如果密匙对已经创建，可能有失去控制的实例，这里也需要进行清除
-                    utils.terminateOOCIns().then(res => {
-                        outputer(1, `Out-of-control Instances were terminated.`);
-                    })
-                );
-            }
-            // 实例已经创建，就销毁实例
-            if (insId)
-                cleanTasks.push(
-                    cloud.terminateInstance(insId).then(res => {
-                        outputer(1, `Instance ${insId} was terminated.`);
-                    })
-                );
-            // 保证所有清理任务都执行完毕
-            Promise.all(cleanTasks).then(res => {
-                // 删除实例临时文件
-                utils.clearServerTemp();
+            cleanDeploy().then(res => {
                 // 恢复状态为idling
                 utils.setStatus(2000);
+                // resume部分为达到中止Promise链的效果，需要reject null
+                // null是不作处理的
+                return Promise.reject(null);
             }).catch(err => {
-                return Promise.reject(`Failed to clean remains: ${err}`);
+                // 这里是真出问题了
+                return Promise.reject(err);
             });
-            // resume部分为达到中止效果，需要reject null
-            // null是不作处理的
-            return Promise.reject(null);
         }
     }
     // 以下开始是正常的创建实例流程
@@ -278,7 +255,10 @@ function insSideMonitor() {
                     outputer(1, `WebSocket Connection Closed: ${code}, Reason:${reason}`);
                     wsHandler.revokeWS(); // 设置主连接为null
                     ws.terminate(); // 中止连接
-                    res(true); // 这里true代表尝试重新连接
+                    if (code == 1001)
+                        res(false); // 正常关闭，不再重连
+                    else
+                        res(true); // 这里true代表尝试重新连接
                 })
                 .on('error', (err) => {
                     outputer(3, `WebSocket Error: ${err}`);
@@ -295,9 +275,49 @@ function insSideMonitor() {
             });
         } else {
             // 实例端退出，服务器流程走完，退出monitor
-            return Promise.resolve('InsSide passed away.');
+            return Promise.resolve('InsSide passed away, see you!');
         }
     })
+}
+
+/**
+ * 一次流程走完，清理这次部署的残余内容
+ * @return {Promise}
+ */
+function cleanDeploy() {
+    utils.setStatus(2500);
+    let details = utils.getInsDetail() || [],
+        keyId = details['instance_key_id'],
+        insId = details['instance_id'];
+    outputer(1, 'Cleaning the remains of the deployment.');
+    let cleanTasks = []; // 清理任务Promises
+    // 如果密匙对已经创建，就销毁密匙对
+    if (keyId) {
+        cleanTasks.push(
+            cloud.elasticDelKey(keyId).then(res => {
+                outputer(1, `Key ${keyId} was deleted.`);
+            }),
+            // 如果密匙对已经创建，可能有失去控制的实例，这里也需要进行清除
+            utils.terminateOOCIns().then(res => {
+                outputer(1, `Out-of-control Instances were terminated.`);
+            })
+        );
+    }
+    // 实例已经创建，就销毁实例
+    if (insId)
+        cleanTasks.push(
+            cloud.terminateInstance(insId).then(res => {
+                outputer(1, `Instance ${insId} was terminated.`);
+            })
+        );
+    // 保证所有清理任务都执行完毕
+    Promise.all(cleanTasks).then(res => {
+        // 删除实例临时文件
+        utils.clearServerTemp();
+        return Promise.resolve('Cleanup Done.');
+    }).catch(err => {
+        return Promise.reject(`Failed to clean remains: ${err}`);
+    });
 }
 
 /**
@@ -305,12 +325,12 @@ function insSideMonitor() {
  */
 function launchEntry() {
     compareAndRun() // 交由异步函数处理
-        .then(insId => {
-            // 开始在实例上建设“基地”
-            return setUpBase(insId);
-        })
+        .then(insId => setUpBase(insId)) // 开始在实例上建设“基地”
+        .then(res => insSideMonitor())
+        .then(res => cleanDeploy())
         .then(res => {
-            return insSideMonitor();
+            // 恢复状态为idling
+            utils.setStatus(2000);
         })
         .catch(err => {
             if (err) {
