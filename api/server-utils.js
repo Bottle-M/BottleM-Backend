@@ -11,6 +11,7 @@ const jsons = require('../basic/json-scaffold');
 const outputer = require('../basic/output');
 const backendStatusPath = configs['backendStatusPath'];
 const insDetailsFile = configs['insDetailsFile'];
+const lockFilePath = configs['launchLockFile'];
 const serverTemp = configs['serverTemp'];
 const WebSocket = require('ws');
 const ssh2Client = require('ssh2').Client;
@@ -86,7 +87,7 @@ function setInsDetail(keys, values) {
  * @note 注意，这是一个危险操作，可能造成数据丢失
  */
 function terminateOOCIns() {
-    let insId = getInsDetail('ins_id'),
+    let insId = getInsDetail('instance_id'),
         timer = null;
     outputer(1, 'Waiting to terminate out-of-control instance(s)...');
     return new Promise((resolve, reject) => {
@@ -199,7 +200,7 @@ function errorHandler(msg, time = 0) {
             // 输出错误，记入日志，等级：警告
             outputer(2, errMsg, true, time);
             // 删除部署锁定文件
-            safeDel(lockFile);
+            safeDel(lockFilePath);
         } else {
             // 输出错误，记入日志，等级：错误
             outputer(3, errMsg, true, time);
@@ -303,7 +304,7 @@ function fastPutFiles(sshConn, fileArr) {
 }
 
 /**
- * 设置Minecraft服务器的相关信息
+ * （同步）设置Minecraft服务器的相关信息
  * @param {String|Array} keys 设置的键（可以是键组成的数组）
  * @param {String|Array} values 设置的内容（可以是内容组成的数组）
  */
@@ -315,7 +316,7 @@ function setMCInfo(keys, values) {
             'players_online': 0
         })); // 创建文件
     }
-    jsons.ascSet(minecraftServerInfoPath, keys, values);
+    jsons.scSet(minecraftServerInfoPath, keys, values);
 }
 
 /**

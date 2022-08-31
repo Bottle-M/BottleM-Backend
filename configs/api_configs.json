@@ -1,5 +1,5 @@
 {
-    "api_port": 1234,
+    "api_port": 2333,
     "logs_dir": "./api_logs",
     "rows_per_log": 200,
     "max_logs_retained": 30,
@@ -32,7 +32,7 @@
     "ssh_keep_alive_interval": 8000,
     "ins_side": {
         "ws_port": 9527,
-        "ws_ping_timeout": 30000,
+        "ws_ping_timeout": 20000,
         "remote_dir": "/root/baseData",
         "deploy_scripts": [
             "setup_cos.sh",
@@ -51,6 +51,7 @@
         "script_exec_dir": "/root",
         "mc_server_launch_timeout": 90000,
         "server_idling_timeout": 900000,
-        "player_leaver_reset_timeout": true
+        "player_leaver_reset_timeout": true,
+        "check_packed_server_size": 90
     }
 }

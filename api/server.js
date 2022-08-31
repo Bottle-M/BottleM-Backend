@@ -41,31 +41,35 @@ function compareAndRun() {
             return insId ? Promise.resolve(insId) : Promise.reject('No instance ID found, unable to resume');
         } else { // 上次终止时仍然在进行创建密匙对/实例工作
             outputer(1, 'Cleaning remains of the incomplete deployment.');
+            let cleanTasks = []; // 清理任务Promises
             // 如果密匙对已经创建，就销毁密匙对
             if (keyId) {
-                cloud.elasticDelKey(keyId).then(res => {
-                    outputer(1, `Key ${keyId} was deleted.`);
-                }).catch(err => {
-                    outputer(2, err);
-                });
-                // 如果密匙对已经创建，十有八九有一个失去控制的实例，这里也需要进行清除
-                utils.terminateOOCIns().then(res => {
-                    outputer(1, `Out-of-control Instances were terminated.`);
-                }).catch(err => {
-                    outputer(2, err);
-                });
+                cleanTasks.push(
+                    cloud.elasticDelKey(keyId).then(res => {
+                        outputer(1, `Key ${keyId} was deleted.`);
+                    }),
+                    // 如果密匙对已经创建，可能有失去控制的实例，这里也需要进行清除
+                    utils.terminateOOCIns().then(res => {
+                        outputer(1, `Out-of-control Instances were terminated.`);
+                    })
+                );
             }
             // 实例已经创建，就销毁实例
             if (insId)
-                cloud.terminateInstance(insId).then(res => {
-                    outputer(1, `Instance ${insId} was terminated.`);
-                }).catch(err => {
-                    outputer(2, `Failed to terminate instance ${insId}: ${err}`);
-                });
-            // 删除实例临时文件
-            utils.clearServerTemp();
-            // 恢复状态为idling
-            utils.setStatus(2000);
+                cleanTasks.push(
+                    cloud.terminateInstance(insId).then(res => {
+                        outputer(1, `Instance ${insId} was terminated.`);
+                    })
+                );
+            // 保证所有清理任务都执行完毕
+            Promise.all(cleanTasks).then(res => {
+                // 删除实例临时文件
+                utils.clearServerTemp();
+                // 恢复状态为idling
+                utils.setStatus(2000);
+            }).catch(err => {
+                return Promise.reject(`Failed to clean remains: ${err}`);
+            });
             // resume部分为达到中止效果，需要reject null
             // null是不作处理的
             return Promise.reject(null);
@@ -176,9 +180,14 @@ function setUpBase(insId) {
         }, queryInterval);
     }).then((pubIp) => {
         utils.setStatus(2101); // 尝试通过SSH连接实例
-        return utils.connectInsSSH(pubIp).then(conn => {
-            outputer(1, 'Successfully connected to the instance.');
-            return Promise.resolve(conn);
+        return new Promise((res) => {
+            // 等待三秒再开始连接
+            setTimeout(res, 3000);
+        }).then(res => {
+            return utils.connectInsSSH(pubIp).then(conn => {
+                outputer(1, 'Successfully connected to the instance.');
+                return Promise.resolve(conn);
+            });
         });
     }).then((sshConn) => {
         utils.setStatus(2102); // 开始部署实例上的“基地”
@@ -277,8 +286,13 @@ function insSideMonitor() {
         });
     }).then(reconnect => {
         if (reconnect) {
-            // 普通的连接中断，重连一下
-            return insSideMonitor();
+            // 普通的连接中断，(3秒后)尝试重连一下
+            // 这里一定得返回一个Promise对象
+            return new Promise((res) => {
+                setTimeout(res, 3000);
+            }).then(res => {
+                return insSideMonitor();
+            });
         } else {
             // 实例端退出，服务器流程走完，退出monitor
             return Promise.resolve('InsSide passed away.');

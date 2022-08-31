@@ -56,8 +56,37 @@ function ascSet(jPath, keys, values) {
     });
 }
 
+/**
+ * （同步）设置某个json文件的键值对
+ * @param {String} jPath 文件绝对路径
+ * @param {String|Array} keys 设置的键（可以是键组成的数组）
+ * @param {String|Array} values 设置的内容（可以是内容组成的数组）
+ * @returns {Boolean} 是否成功
+ */
+function scSet(jPath, keys, values) {
+    if (!(keys instanceof Array)) keys = [keys];
+    if (!(values instanceof Array)) values = [values];
+    let parsed = scRead(jPath);
+    if (parsed) {
+        for (let i = 0, len = keys.length; i < len; i++) {
+            if (keys[i] && values[i])
+                parsed[keys[i]] = values[i];
+        }
+        try {
+            writeFileSync(jPath, JSON.stringify(parsed));
+            return true;
+        } catch (e) {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+
 module.exports = {
-    ascRead: ascRead,
-    scRead: scRead,
-    ascSet: ascSet
+    ascRead,
+    scRead,
+    ascSet,
+    scSet
 }
