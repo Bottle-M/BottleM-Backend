@@ -40,7 +40,8 @@
             "launch_server.sh"
         ],
         "server_scripts": {
-            "check_process": "check_progress.sh"
+            "check_process": "check_process.sh",
+            "check_termination": "check_termination.sh"
         },
         "incremental_backup": {
             "output_dir":"/root/increments",

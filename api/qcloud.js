@@ -2,7 +2,7 @@
 'use strict';
 const qcloudCvm = require('tencentcloud-sdk-nodejs-cvm');
 const CvmClient = qcloudCvm.cvm.v20170312.Client;
-const path = require('path');
+const { writeFileSync } = require('fs');
 const configs = require('../basic/config-box');
 const outputer = require('../basic/output');
 // 记录待删除密匙对，防止撞车
@@ -35,9 +35,10 @@ const client = new CvmClient(clientConfig);
 
 /**
  * 请求API以获得实例列表，并根据配置和正则表达式进行筛选
- * @returns {Promise<void>} 返回Promise对象
+ * @param {String} outputPath 输出路径(输出未筛选的实例列表)
+ * @returns {Promise} 返回Promise对象
  */
-function filterInsType() {
+function filterInsType(outputPath = '') {
     let params = {
         "Filters": [
             {
@@ -59,6 +60,10 @@ function filterInsType() {
         (data) => {
             let resultArr = data['InstanceTypeQuotaSet'],
                 filteredTypes = [];
+            // 将未筛选的实例列表输出到指定路径，以便后期检查
+            if (outputPath) {
+                writeFileSync(outputPath, JSON.stringify(resultArr, null, 4));
+            }
             // 先按实例family筛选出来部分实例类型
             for (let i = 0, len = resultArr.length; i < len; i++) {
                 let item = resultArr[i];

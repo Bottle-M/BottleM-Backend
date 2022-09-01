@@ -34,13 +34,11 @@ function compareAndRun() {
     let statusCode = utils.getStatus('status_code');
     // 这里用于resume，在进程重启后能恢复到上回的进度
     if (statusCode > 2000) { // 上次意外终止时状态并不是Idling或者出现错误
-        let details = utils.getInsDetail() || [],
-            keyId = details['instance_key_id'],
-            insId = details['instance_id'];
+        let insId = utils.getInsDetail('instance_id');
         if (statusCode >= 2100) { // 上次终止时进入了下一阶段，直接resolve
             return insId ? Promise.resolve(insId) : Promise.reject('No instance ID found, unable to resume');
         } else { // 上次终止时仍然在进行创建密匙对/实例工作
-            cleanDeploy().then(res => {
+            return cleanDeploy().then(res => {
                 // 恢复状态为idling
                 utils.setStatus(2000);
                 // resume部分为达到中止Promise链的效果，需要reject null
@@ -54,7 +52,9 @@ function compareAndRun() {
     }
     // 以下开始是正常的创建实例流程
     utils.setStatus(2001); // 开始比价
-    return cloud.filterInsType().then(insConfigs => {
+    // 可用实例列表（未经筛选）的输出路径，用于检查
+    let outputPath = path.join(__dirname, `../${configs['serverTemp']}/all_available_ins.json`);
+    return cloud.filterInsType(outputPath).then(insConfigs => {
         insConfigs.sort((former, latter) => { // 根据价格、内网带宽进行排序
             // 计算权重数：先把折扣价*1000，减去内网带宽*20。数值越小，权重越大
             let formerWeight = former['Price']['UnitPriceDiscount'] * 1000 - former['InstanceBandwidth'] * 20,
@@ -285,7 +285,6 @@ function insSideMonitor() {
  * @return {Promise}
  */
 function cleanDeploy() {
-    utils.setStatus(2500);
     let details = utils.getInsDetail() || [],
         keyId = details['instance_key_id'],
         insId = details['instance_id'];
@@ -311,7 +310,7 @@ function cleanDeploy() {
             })
         );
     // 保证所有清理任务都执行完毕
-    Promise.all(cleanTasks).then(res => {
+    return Promise.all(cleanTasks).then(res => {
         // 删除实例临时文件
         utils.clearServerTemp();
         return Promise.resolve('Cleanup Done.');
@@ -327,7 +326,10 @@ function launchEntry() {
     compareAndRun() // 交由异步函数处理
         .then(insId => setUpBase(insId)) // 开始在实例上建设“基地”
         .then(res => insSideMonitor())
-        .then(res => cleanDeploy())
+        .then(res => {
+            utils.setStatus(2500);
+            return cleanDeploy();
+        })
         .then(res => {
             // 恢复状态为idling
             utils.setStatus(2000);

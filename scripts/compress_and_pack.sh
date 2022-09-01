@@ -1,9 +1,9 @@
 #!/bin/bash
 # 压缩打包Minecraft服务端的脚本
 
-# 检查打包目录是否为空
-if [[  -z "$(ls $PACK_DIR)"  ]]; then
-    echo "Failed to get: $PACK_DIR"
+# 检查打包目录是否不为空
+if [[  -n "$(ls $PACK_DIR)"  ]]; then
+    echo "Directory not empty: $PACK_DIR"
     exit 1
 fi
 

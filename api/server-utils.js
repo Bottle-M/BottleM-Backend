@@ -20,9 +20,9 @@ const initialInsSideConfigs = apiConfigs['ins_side'];
 // 实例端临时配置的文件名（如果这一项改了，InsSide的源码也要改）
 const insTempConfigName = 'ins_side_configs.tmp.json';
 // 实例端临时配置的绝对路径
-const insTempConfigPath = path.join(__dirname, `../${configs['serverTemp']}/${insTempConfigName}`);
+const insTempConfigPath = path.join(__dirname, `../${serverTemp}/${insTempConfigName}`);
 // Minecraft服务器信息文件的绝对路径
-const minecraftServerInfoPath = path.join(__dirname, `../${configs['serverTemp']}/mc_server_info.json`);
+const minecraftServerInfoPath = path.join(__dirname, `../${serverTemp}/mc_server_info.json`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
 const remoteDir = configs['remoteDir'];
 
