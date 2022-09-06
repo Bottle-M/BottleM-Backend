@@ -1,6 +1,6 @@
 // 小型JSON文件读取模块
 'use strict';
-const { promises: fs, readFileSync } = require('fs'); // 载入基于Promise的文件系统模块
+const { promises: fs, readFileSync, writeFileSync } = require('fs'); // 载入基于Promise的文件系统模块
 const path = require('path');
 
 /**

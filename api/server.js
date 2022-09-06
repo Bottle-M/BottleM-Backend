@@ -236,7 +236,7 @@ function setUpBase(insId) {
  */
 function insSideMonitor() {
     utils.setStatus(2200); // 尝试连接实例端
-    utils.setMCInfo('launch_time', Date.now()); // 创建Minecraft服务器信息文件
+    utils.setMCInfo(['connect_time', 'idling_time_left'], [Date.now(), 0]); // 创建Minecraft服务器信息文件
     return utils.connectInsSide().then((ws) => {
         return new Promise((res, rej) => {
             outputer(1, 'WebSocket Connected.');
@@ -336,7 +336,7 @@ function launchEntry() {
         })
         .catch(err => {
             if (err) {
-                // 必须要有错误信息才当错误处理
+                // 必须要有错误信息才当错误处理(err=null时不处理)
                 utils.errorHandler(err);
             }
         });
@@ -344,9 +344,55 @@ function launchEntry() {
 
 module.exports = {
     /**
+     * 在Minecraft服务器内执行命令
+     * @param {String} cmd 要执行的命令
+     * @param {Object} resultObj 返回给路由的数据对象
+     * @returns {Object} 装有返回数据的对象
+     * @note 如果服务器尚未开启，待执行的指令会被缓存起来，等服务器开启后再执行
+     */
+    sendCommand: function (cmd, resultObj) {
+        // 检查状态文件，取不到文件默认1000
+        let statusCode = utils.getStatus('status_code') || 1000;
+        if (statusCode >= 2300 && statusCode < 2400) {
+            // 状态代码在[2300,2400)区间中，说明服务器已经启动
+            wsHandler.send(utils.buildInsSideReq('command', {
+                command: cmd
+            }));
+            resultObj.code = 0; // 0 代表交由异步处理
+        } else {
+            // 其余情况服务器没有启动，将指令缓存起来
+            utils.storeCommand(cmd);
+            resultObj.code = 1; // 1 代表成功
+        }
+        resultObj.msg = 'Successfully sent the command';
+        return resultObj;
+    },
+    /**
+     * 向Minecraft服务器发送stop指令
+     * @param {Boolean} force 是否强制停止(kill)
+     * @param {Object} resultObj 返回给路由的数据对象
+     * @returns {Object} 装有返回数据的对象
+     */
+    stop: function (force, resultObj) {
+        let statusCode = utils.getStatus('status_code') || 1000;
+        if (statusCode >= 2300 && statusCode < 2400) {
+            // 状态代码在[2300,2400)区间中，说明服务器已经启动
+            if (force) {
+                wsHandler.send(utils.buildInsSideReq('kill'));
+                resultObj.msg = 'Killing the server...';
+            } else {
+                wsHandler.send(utils.buildInsSideReq('stop'));
+                resultObj.msg = 'Closing the server...';
+            }
+            resultObj.code = 0; // 0 代表交由异步处理
+        } else {
+            resultObj.msg = 'Server is not running.'; // Minecraft不在运行
+        }
+    },
+    /**
      * 部署/启动服务器（会检查服务器是否已经启动）
-     * @param {*} resultObj 返回数据对象
-     * @returns 装有返回数据的对象
+     * @param {Object} resultObj 返回给路由的数据对象
+     * @returns {Object} 装有返回数据的对象
      */
     launch: function (resultObj) {
         // 检查状态文件，取不到文件默认1000

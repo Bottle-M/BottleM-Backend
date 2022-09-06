@@ -52,10 +52,14 @@
         "inform": true
     },
     "2400": {
-        "msg": "Server closing: packing up the server...",
+        "msg": "Server closing: stopping Minecraft Server...",
         "inform": false
     },
     "2401": {
+        "msg": "Server closing: packing up the server...",
+        "inform": true
+    },
+    "2402": {
         "msg": "Server closing: uploading the compressed packs...",
         "inform": false
     },

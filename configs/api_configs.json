@@ -56,6 +56,10 @@
             "pack": "compress_and_pack.sh",
             "upload": "upload_server.sh"
         },
+        "rcon":{
+            "port": 25575,
+            "password": "123456"
+        },
         "packed_server_dir": "/root/serverPacked",
         "mc_server_dir": "/root/minecraft",
         "script_exec_dir": "/root",

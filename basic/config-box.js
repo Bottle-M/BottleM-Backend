@@ -6,7 +6,7 @@ const jsons = require('./json-scaffold');
 
 /**
  * 同步读取配置文件
- * @param {*} configName 配置文件名 
+ * @param {String} configName 配置文件名 
  * @returns 返回配置文件内容
  */
 function configReader(configName) {
@@ -33,7 +33,7 @@ const secretConfigs = configReader('secret_configs');
 const statusConfigs = configReader('status_codes');
 
 // backend-status文件路径
-const backendStatusPath = path.join(__dirname, '../backend_status.json');
+const backendStatusFile = path.join(__dirname, '../backend_status.json');
 
 // 最初的backend-status文件内容
 const initialBackendStatus = {
@@ -55,26 +55,25 @@ const launchLockFile = path.join(__dirname, `../${serverTemp}/launch.lock`);
 // 实例登入私匙文件路径
 const loginKeyFile = path.join(__dirname, `../${serverTemp}/login.pem`);
 
+// 临时储存发送到Minecraft服务器指令的文件路径
+const mcTempCmdFile = path.join(__dirname, `../cmds_for_minecraft.json`);
+
 // 所有必要数据上传到实例中的哪里（绝对路径）
 const remoteDir = apiConfigs['ins_side']['remote_dir'];
 
-/**
- * 读取某个配置文件
- * @param {*} configName 配置文件名
- * @returns {Promise<any>} 返回一个Promise
- */
 module.exports = {
-    apiConfigs: apiConfigs, // API主配置
-    tokenConfigs: tokenConfigs,
-    secretConfigs: secretConfigs,
-    statusConfigs: statusConfigs,
-    backendStatusPath: backendStatusPath,
-    initialBackendStatus: initialBackendStatus,
-    serverTemp: serverTemp,
-    launchLockFile: launchLockFile,
-    insDetailsFile: insDetailsFile,
-    loginKeyFile: loginKeyFile,
-    remoteDir: remoteDir,
+    apiConfigs, // API主配置
+    tokenConfigs,
+    secretConfigs,
+    statusConfigs,
+    backendStatusFile,
+    initialBackendStatus,
+    serverTemp,
+    launchLockFile,
+    insDetailsFile,
+    loginKeyFile,
+    remoteDir,
+    mcTempCmdFile,
     sc: configReader,
     /**
      * 异步读取配置文件

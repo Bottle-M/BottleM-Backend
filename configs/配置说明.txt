@@ -40,10 +40,16 @@ api_configs:
             【默认】'/root/baseData'
         - deploy_scripts 部署Minecraft服务器的脚本文件名，会从remote_dir中读取，是一个数组，从头至尾执行
 
-        - server_scripts Minecraft服务器相关的脚本
+        - server_scripts Minecraft服务器相关的脚本，会从remote_dir中读取
 
-            - check_process 检查Java进程是否存在，脚本如果没有输出任何内容，代表进程不存在
-                【默认】check_process.sh
+            - stop_server 停止Minecraft服务器的脚本文件名
+                【默认】'stop_server.sh'
+
+            - check_process 检查Java进程是否存在的脚本文件名，脚本如果没有输出任何内容，代表进程不存在
+                【默认】'check_process.sh'
+
+            - check_termination 检查竞价实例是否即将终止的脚本文件名，脚本如果没有输出任何内容，代表实例即将被终止
+                【默认】'check_termination.sh'
 
         - incremental_backup 增量备份相关
 
@@ -68,6 +74,14 @@ api_configs:
 
             - upload 打包后上传压缩包的脚本
                 【默认】'upload_server.sh'
+
+        - rcon RCON连接相关配置
+            请确定RCON已经在Minecraft服务器端启用
+
+            - port RCON连接端口
+                【默认】25575
+            - password RCON连接密码
+                【默认】'123456'
 
         - packed_server_dir Minecraft服务器文件压缩包所在目录，无论是刚刚开始部署的解包，还是服务器关闭后的打包，都是在这个目录内进行的，另外程序可能还会扫描该目录内压缩包总大小，在服务器关闭打包后进行比对
             必须是绝对路径

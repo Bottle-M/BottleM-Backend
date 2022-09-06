@@ -3,13 +3,14 @@
 
 /server/maintenance 维护节点（部署后不会启动Minecraft服务器）
     - /launch 开启
-    - /stop 关闭（软）
+    - /stop 关闭（软），会等待Minecraft服务器进程正常结束后打包服务器
     - /kill 关闭（硬）
     - /pem 获得本次服务器登入私匙
     - /revive 清除当前错误，继续运行
 
 /server/command 命令节点
     - /send 发送命令
+        - 方式：POST，表单字段包含 command - 命令内容
 
 /server/logs 服务器日志查看节点
     - /knock 开始在websocket连接中传输日志

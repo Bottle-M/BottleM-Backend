@@ -12,11 +12,11 @@ configs['temporary_num'] = 0;
 
 /**
  * 检验token是否有权限访问
- * @param {*} token token字符串 
- * @param {*} reqPath 请求路径数组
+ * @param {String} token token字符串 
+ * @param {Array} reqPathParts 请求路径数组
  * @returns 布尔值
  */
-module.exports = function (token, reqPath) {
+module.exports = function (token, reqPathParts) {
     let tokenConfigs = configs.tokenConfigs, // 获取token配置
         tokens = tokenConfigs['tokens'], // 获取token列表
         target = null;
@@ -30,11 +30,12 @@ module.exports = function (token, reqPath) {
         return false;
     } else {
         let permissions = tokenConfigs['permissions'][target]; // 获取权限列表
+        reqPathParts = reqPathParts.map(x => encodeURIComponent(x)); // 对路径进行编码
         for (let i = 0, len = permissions.length; i < len; i++) {
             let nodes = permissions[i].split('.'),
                 // 比如server.*，则nodes为['server', '*'],通配符只能放在末尾
                 challenge = nodes.every((node, ind) => {
-                    return (node === '*' || !reqPath[ind] || node === reqPath[ind]);
+                    return (node === '*' || !reqPathParts[ind] || node === reqPathParts[ind]);
                 });
             if (challenge) {
                 return true;

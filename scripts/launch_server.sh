@@ -11,8 +11,12 @@ cd $MC_DIR
 # 同意eula
 echo "eula=true" > eula.txt
 
+sleep 1s
+
 # 创建screen并分离(detach)
 screen -L -dmS minecraft
+
+sleep 1s
 
 # 向screen内传输指令，启动服务端
 screen -x -S minecraft -p 0 -X stuff "$LAUNCH_CMD ; $END_CMD \n"

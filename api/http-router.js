@@ -13,29 +13,40 @@ if (currentStatus && currentStatus > 2000) {
 
 /**
  * 针对backend操作进行分发
- * @param {*} resultData 返回数据
- * @param {*} reqPath 在backend下的请求路径
- * @param {*} reqParams 请求的参数
- * @param {*} reqMethod 请求的方法（小写，get/post/put...）
+ * @param {Object} resultObj 返回数据
+ * @param {String} reqPath 在backend下的请求路径
+ * @param {URLSearchParams} reqParams 请求的参数
+ * @param {String} reqMethod 请求的方法（小写，get/post/put...）
  * @returns 返回一个对象，包含了请求的结果
  */
-function backendRouter(resultData, reqPath, reqParams, reqMethod) {
+function backendRouter(resultObj, reqPath, reqParams, reqMethod) {
 
-    return resultData;
+    return resultObj;
 }
 
 /**
  * 针对server操作进行分发
- * @param {*} resultObj 返回数据
- * @param {*} reqPath 在server下的请求路径
- * @param {*} reqAction 请求的操作
- * @param {*} reqMethod 请求的方法（小写，get/post/put...）
+ * @param {Object} resultObj 返回数据
+ * @param {String} reqPath 在server下的请求路径
+ * @param {String} reqAction 请求的操作
+ * @param {String} reqMethod 请求的方法（小写，get/post/put...）
+ * @param {URLSearchParams} postParams POST的数据
  * @returns 返回一个对象，包含了请求的结果
  */
-function serverRouter(resultObj, reqPath, reqAction, reqMethod) {
+function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
     let action = reqAction || '';
     outer:
     switch (reqPath) {
+        case 'command': { // /server/command
+            let command = postParams.get('command');
+            if (reqMethod === 'post' && action === 'send' && command) {
+                server.sendCommand(command, resultObj);
+            } else {
+                resultObj.msg = 'Invalid Request';
+                resultObj.status = 400;
+            }
+        }
+            break;
         case 'maintenance': // /server/maintenance
             switch (action) {
                 case 'pem':
@@ -43,15 +54,17 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod) {
                 case 'revive':
                     break outer;
                 case 'stop':
+                    server.stop(false, resultObj); // 发送关服指令 
                     break outer;
                 case 'kill':
+                    server.stop(true, resultObj); // 发送杀死指令 
                     break outer;
                 default:
                     break;
             }
         case 'normal': // /server/normal
             if (action == 'launch') { // 开始部署服务器
-                resultObj = server.launch(resultObj);
+                server.launch(resultObj);
                 break;
             } else {
                 resultObj.msg = 'Lack of Valid Action';
@@ -73,14 +86,14 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod) {
  * @return 返回一个对象，包含了请求的结果
  */
 module.exports = function (reqObj, resultObj) {
-    let { rPath, params, method } = reqObj;
-    if (rPath[1]) {
-        switch (rPath[0]) {
+    let { reqPath, params, method, postParams } = reqObj;
+    if (reqPath[1]) {
+        switch (reqPath[0]) {
             case 'server':
-                resultObj = serverRouter(resultObj, rPath[1], rPath[2], method);
+                serverRouter(resultObj, reqPath[1], reqPath[2], method, postParams);
                 break;
             case 'backend':
-                resultObj = backendRouter(resultObj, rPath[1], params, method);
+                backendRouter(resultObj, reqPath[1], params, method);
                 break;
             default:
                 resultObj.msg = 'Invalid Request';

@@ -9,10 +9,13 @@ const configs = require('../basic/config-box');
 const apiConfigs = configs['apiConfigs'];
 const jsons = require('../basic/json-scaffold');
 const outputer = require('../basic/output');
-const backendStatusPath = configs['backendStatusPath'];
-const insDetailsFile = configs['insDetailsFile'];
-const lockFilePath = configs['launchLockFile'];
-const serverTemp = configs['serverTemp'];
+const {
+    backendStatusFile: backendStatusPath,
+    insDetailsFile: insDetailsFilePath,
+    launchLockFile: lockFilePath,
+    mcTempCmdFile: mcTempCmdFilePath,
+    serverTemp: serverTempPath
+} = configs;
 const WebSocket = require('ws');
 const ssh2Client = require('ssh2').Client;
 // 实例端最初配置对象
@@ -20,9 +23,9 @@ const initialInsSideConfigs = apiConfigs['ins_side'];
 // 实例端临时配置的文件名（如果这一项改了，InsSide的源码也要改）
 const insTempConfigName = 'ins_side_configs.tmp.json';
 // 实例端临时配置的绝对路径
-const insTempConfigPath = path.join(__dirname, `../${serverTemp}/${insTempConfigName}`);
+const insTempConfigPath = path.join(__dirname, `../${serverTempPath}/${insTempConfigName}`);
 // Minecraft服务器信息文件的绝对路径
-const minecraftServerInfoPath = path.join(__dirname, `../${serverTemp}/mc_server_info.json`);
+const minecraftServerInfoPath = path.join(__dirname, `../${serverTempPath}/mc_server_info.json`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
 const remoteDir = configs['remoteDir'];
 
@@ -73,7 +76,7 @@ function setStatus(code) {
  * @returns {Promise}
  */
 function setInsDetail(keys, values) {
-    return jsons.ascSet(insDetailsFile, keys, values).catch(err => {
+    return jsons.ascSet(insDetailsFilePath, keys, values).catch(err => {
         // 设置状态失败，写入日志
         let errMsg = 'Failed to set Instance Detail: ' + err;
         outputer(2, errMsg);
@@ -145,7 +148,7 @@ function getStatus(key = '') {
  * @returns 对象或者单个类型的值，读取失败会返回null
  */
 function getInsDetail(key = '') {
-    let details = jsons.scRead(insDetailsFile);
+    let details = jsons.scRead(insDetailsFilePath);
     if (details) {
         return key ? details[key] : details;
     } else {
@@ -171,9 +174,9 @@ function safeDel(filePath) {
  */
 function clearServerTemp() {
     try {
-        let files = fs.readdirSync(serverTemp);
+        let files = fs.readdirSync(serverTempPath);
         files.forEach((tmp) => {
-            fs.rmSync(path.join(__dirname, `../${serverTemp}`, tmp));
+            fs.rmSync(path.join(__dirname, `../${serverTempPath}`, tmp));
         });
         return true;
     } catch (err) {
@@ -529,6 +532,39 @@ function toPosixSep(origin) {
     return origin.replaceAll(path.sep, '/');
 }
 
+/**
+ * (同步)暂存发给Minecraft服务器的指令
+ * @param {String} cmd 
+ */
+function storeCommand(cmd) {
+    let previousCmd = jsons.scRead(mcTempCmdFilePath);
+    if (!previousCmd) { // 文件尚未存在
+        previousCmd = [];
+    }
+    previousCmd.push(cmd);
+    try {
+        fs.writeFileSync(mcTempCmdFilePath, JSON.stringify(previousCmd), {
+            encoding: 'utf-8'
+        });
+    } catch (e) {
+        outputer(2, `Failed to store command: ${e}`);
+    }
+}
+
+/**
+ * (同步)将暂存的Minecraft命令全部冲洗出来，清空暂存文件
+ * @returns {Array} 包含一组Minecraft指令的数组
+ */
+function flushCommands() {
+    let commands = jsons.scRead(mcTempCmdFilePath);
+    if (!commands) { // 文件尚未存在
+        commands = [];
+    } else {
+        fs.rmSync(mcTempCmdFilePath);
+    }
+    return commands;
+}
+
 module.exports = {
     updateBackendStatus,
     setStatus,
@@ -552,5 +588,7 @@ module.exports = {
     buildInsSideReq,
     createMultiDirs,
     setMCInfo,
-    getMCInfo
+    getMCInfo,
+    storeCommand,
+    flushCommands
 }
