@@ -36,19 +36,21 @@
         "remote_dir": "/root/baseData",
         "deploy_scripts": [
             "setup_cos.sh",
-            "get_server.sh",
-            "launch_server.sh"
+            "get_server.sh"
         ],
+        "launch_script": "launch_server.sh",
         "server_scripts": {
             "check_process": "check_process.sh",
             "check_termination": "check_termination.sh"
         },
         "incremental_backup": {
-            "output_dir":"/root/increments",
+            "enable": true,
+            "dest_dir": "/root/increments",
             "scripts": {
-                "get_fragments": "get_fragments.sh"
+                "backup": "incre_backup.sh",
+                "restore": "incre_restore.sh"
             },
-            "target_dir": [
+            "src_dirs": [
                 "/root/minecraft/world"
             ]
         },
@@ -56,7 +58,7 @@
             "pack": "compress_and_pack.sh",
             "upload": "upload_server.sh"
         },
-        "rcon":{
+        "rcon": {
             "port": 25575,
             "password": "123456"
         },

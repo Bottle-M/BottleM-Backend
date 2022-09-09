@@ -40,6 +40,8 @@ api_configs:
             【默认】'/root/baseData'
         - deploy_scripts 部署Minecraft服务器的脚本文件名，会从remote_dir中读取，是一个数组，从头至尾执行
 
+        - launch_script 启动Minecraft服务器的脚本文件名，会从remote_dir中读取
+
         - server_scripts Minecraft服务器相关的脚本，会从remote_dir中读取
 
             - stop_server 停止Minecraft服务器的脚本文件名
@@ -53,7 +55,11 @@ api_configs:
 
         - incremental_backup 增量备份相关
 
-            - output_dir 服务器运行中增量备份的部分的目录
+            - enable 是否启用增量备份
+                【默认】true
+
+            - dest_dir 服务器运行中增量备份的输出目录
+                必须是绝对路径
                 【默认】'/root/increments'
 
             - scripts 增量备份上传/下载相关脚本文件名，会从remote_dir中读取
@@ -61,7 +67,7 @@ api_configs:
                 - get_fragments 下载增量备份碎片的脚本文件名
                     【默认】'get_fragments.sh'
 
-            - target_dir 增量备份针对的目录，是一个数组
+            - src_dirs 增量备份针对的目录，是一个数组
                 必须是绝对路径
                 【默认】['/root/minecraft/world']
 
@@ -121,9 +127,15 @@ status_codes:
     PACK_DIR - 打包后的服务端的目录(同packed_server_dir)
     FRAGMENTS_DIR - 增量备份的碎片目录(同backup_fragments_dir)
     MC_DIR - Minecraft服务端的目录(同mc_server_dir)
+    TIMESTAMP - 执行脚本时的毫秒级时间戳
     qcloud模块定义的环境变量：
         QCLOUD_SECRET_ID - 密钥ID
         QCLOUD_SECRET_KEY - 密钥KEY
+    incremental_backup部分的独有环境变量：
+        BACKUP_DEST_DIR - 备份目标目录
+        RESTORE_DEST_DIR - 恢复备份目标目录
+        - 仅限backup和restore脚本：
+            BACKUP_NAME - 提供的备份文件名，必须用上，不包括扩展名
 
 
 
@@ -135,8 +147,6 @@ secretId和secretKey（当然填了也不是不行）
 
 文档中一定要写整个启动到回收的过程，免得以后你自己都看不懂了
 
-实例端InsSide在启动Minecraft服务器后可能内存溢出，暂未找到原因，一定要在守护模式下启动。
-
 遇到个哭笑不得的错误，服务器文件列表filelist.txt我在Windows上创建的，行尾序列是CRLF，但是在Linux中是LF，由此导致脚本出错。
 
 check_packed_server_size不为0时，部署脚本中在下载压缩包后不要删除了，实例端需要记录一下文件大小！记录之后会自动删除。
@@ -146,3 +156,7 @@ check_packed_server_size为0时，服务器不会自动删除压缩包，需要�
 实例端部署的时候出错是无法恢复的，请多次测试部署脚本，脚本不要抛出错误
 
 特殊的错误：当没有合适的CVM服务器资源时，会回到2000状态，不会进入错误状态
+
+一定要记得配置安全组，开启Websocket端口。
+
+RCON端口一定不要在安全组中开放！仅在本地使用！不然是不安全的

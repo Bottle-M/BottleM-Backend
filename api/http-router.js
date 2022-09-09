@@ -34,7 +34,8 @@ function backendRouter(resultObj, reqPath, reqParams, reqMethod) {
  * @returns 返回一个对象，包含了请求的结果
  */
 function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
-    let action = reqAction || '';
+    let action = reqAction || '',
+        underMaintenance = false;
     outer:
     switch (reqPath) {
         case 'command': { // /server/command
@@ -59,18 +60,30 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
                 case 'kill':
                     server.stop(true, resultObj); // 发送杀死指令 
                     break outer;
+                case 'discardbackup': // 抛弃增量备份
+                    {
+                        server.launch(underMaintenance, 'discard', resultObj);
+                        resultObj.msg = 'Incremental Backup Discarded';
+                    }
+                    break outer;
                 default:
+                    underMaintenance = true; // 维护模式
                     break;
             }
         case 'normal': // /server/normal
-            if (action == 'launch') { // 开始部署服务器
-                server.launch(resultObj);
-                break;
-            } else {
-                resultObj.msg = 'Lack of Valid Action';
-                resultObj.status = 400;
-                break;
+            switch (action) {
+                case 'launch': // 开始部署服务器
+                    server.launch(underMaintenance, false, resultObj);
+                    break outer;
+                case 'restorelaunch': // 开始恢复增量备份，并部署服务器
+                    server.launch(underMaintenance, true, resultObj);
+                    break outer;
+                default:
+                    resultObj.msg = 'Lack of Valid Action';
+                    resultObj.status = 400;
+                    break;
             }
+            break;
         default:
             resultObj.msg = 'Non-existent Node';
             resultObj.status = 400;

@@ -391,26 +391,34 @@ module.exports = {
     },
     /**
      * 部署/启动服务器（会检查服务器是否已经启动）
+     * @param {Boolean} maintain 是否在维护模式下启动
+     * @param {Boolean|String} restore 是否恢复增量备份后启动服务器
      * @param {Object} resultObj 返回给路由的数据对象
      * @returns {Object} 装有返回数据的对象
+     * @note 如果restore='discard'，会在启动服务器后丢弃增量备份
      */
-    launch: function (resultObj) {
+    launch: function (maintain, restore, resultObj) {
         // 检查状态文件，取不到文件默认1000
         let statusCode = utils.getStatus('status_code') || 1000;
-        if (Math.floor(statusCode / 1000) == 1) {
+        if (Math.floor(statusCode / 1000) === 1) {
             // 出现了错误，阻止服务器启动
             resultObj.msg = 'Error exists, unable to launch the server';
         } else {
-            try {
-                // 检查是否有launch.lock文件
-                fs.statSync(lockFilePath);
-                resultObj.msg = 'Server Already Launched';
-            } catch (e) {
-                // 创建launch.lock文件
-                utils.elasticWrite(lockFilePath, `Launched at ${new Date().toISOString()}`);
-                launchEntry();
-                resultObj.msg = 'Starting to deploy the server!';
-                resultObj.code = 0; // 0 代表交由异步处理
+            if (utils.backupExists()) {
+                // 存在增量备份，这说明上次实例端没有正常退出
+                resultObj.msg = 'Urgent backup exists, please use action: restorelaunch';
+            } else {
+                try {
+                    // 检查是否有launch.lock文件
+                    fs.statSync(lockFilePath);
+                    resultObj.msg = 'Server Already Launched';
+                } catch (e) {
+                    // 创建launch.lock文件
+                    utils.elasticWrite(lockFilePath, `Launched at ${new Date().toISOString()}`);
+                    launchEntry();
+                    resultObj.msg = 'Starting to deploy the server!';
+                    resultObj.code = 0; // 0 代表交由异步处理
+                }
             }
         }
         return resultObj;

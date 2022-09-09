@@ -26,6 +26,8 @@ const insTempConfigName = 'ins_side_configs.tmp.json';
 const insTempConfigPath = path.join(__dirname, `../${serverTempPath}/${insTempConfigName}`);
 // Minecraft服务器信息文件的绝对路径
 const minecraftServerInfoPath = path.join(__dirname, `../${serverTempPath}/mc_server_info.json`);
+// 增量备份文件记录数据
+const backupRecordPath = path.join(__dirname, `../${serverTempPath}/backup_records.json`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
 const remoteDir = configs['remoteDir'];
 
@@ -37,6 +39,38 @@ try {
     fs.writeFileSync(backendStatusPath, JSON.stringify(configs['initialBackendStatus']), {
         encoding: 'utf8'
     });
+}
+
+/**
+ * （同步）检查记录增量备份的文件是否存在
+ * @returns {Boolean}
+ */
+function backupExists() {
+    try {
+        fs.statSync(backupRecordPath);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+/**
+ * （同步）记录增量备份的文件
+ * @param {Array} data 文件信息数组
+ * @param {Boolean} invoke 是否删除（抛弃增量备份）
+ */
+function recordBackup(data, invoke = false) {
+    try {
+        if (invoke) {
+            fs.rmSync(backupRecordPath);
+        } else {
+            fs.writeFileSync(backupRecordPath, JSON.stringify(data), {
+                encoding: 'utf8'
+            });
+        }
+    } catch (e) {
+        outputer(2, `Failed to record backup: ${e}`);
+    }
 }
 
 /**
@@ -176,7 +210,9 @@ function clearServerTemp() {
     try {
         let files = fs.readdirSync(serverTempPath);
         files.forEach((tmp) => {
-            fs.rmSync(path.join(__dirname, `../${serverTempPath}`, tmp));
+            // 排除增量备份记录文件，这个是额外删除的
+            if (!tmp === backupRecordPath)
+                fs.rmSync(path.join(__dirname, `../${serverTempPath}`, tmp));
         });
         return true;
     } catch (err) {
@@ -590,5 +626,7 @@ module.exports = {
     setMCInfo,
     getMCInfo,
     storeCommand,
-    flushCommands
+    flushCommands,
+    recordBackup,
+    backupExists
 }

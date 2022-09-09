@@ -48,7 +48,7 @@ function router(recvObj, ws) {
         case 'status_sync': // 同步状态信息
             let statusCode = recvObj['status_code']; // 获得状态代码
             if (statusCode > 2200) { // 状态码要大于2200才正常
-                outputer(1, 'Status synchronized!');
+                outputer(1, '[Status synchronized]');
                 utils.setStatus(statusCode); // 设置状态码
                 if (statusCode >= 2300 && statusCode < 2400) {
                     // 状态码[2300,2400)代表服务器正在运行
@@ -85,6 +85,17 @@ function router(recvObj, ws) {
             {
                 let { time } = recvObj; // 获得倒计时
                 utils.setMCInfo('idling_time_left', time); // 记录倒计时
+            }
+            break;
+        case 'backup_sync': // 同步增量备份相关信息
+            {
+                // 如果实例端发送过来的records=null，说明增量备份用不上，会删除本地的增量备份记录
+                let { records, invoke } = recvObj; // 获得备份记录
+                if (invoke === true) {
+                    utils.recordBackup(records, true); // 删除备份记录
+                } else {
+                    utils.recordBackup(records); // 记录备份记录
+                }
             }
             break;
     }
