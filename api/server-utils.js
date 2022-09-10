@@ -368,11 +368,13 @@ function getMCInfo(key) {
     return infoObj[key];
 }
 
+
 /**
  * （同步）创建实例端临时配置文件
+ * @param {Object} options 要写入实例端配置的对象
  * @returns {Array} [实例端临时配置文件绝对路径, 实例端临时配置文件名]
  */
-function makeInsSideConfig() {
+function makeInsSideConfig(options = {}) {
     // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
     initialInsSideConfigs['secret_key'] = randStr(128);
     // 实例端状态码配置
@@ -382,7 +384,8 @@ function makeInsSideConfig() {
         'FRAGMENTS_DIR': initialInsSideConfigs['backup_fragments_dir'], // 增量备份碎片目录
         'MC_DIR': initialInsSideConfigs['mc_server_dir'] // Minecraft服务端目录
     }, cloud.environment); // cloud模块定义的环境变量（包含SECRET）
-    elasticWrite(insTempConfigPath, JSON.stringify(initialInsSideConfigs));
+    options = Object.assign(options, initialInsSideConfigs);
+    elasticWrite(insTempConfigPath, JSON.stringify(options));
     return [insTempConfigPath, insTempConfigName];
 }
 
