@@ -28,7 +28,7 @@
     },
     "instance_run_timeout": 90000,
     "instance_deploy_sh": "set_up_base.sh",
-    "instance_connect_retry": 3,
+    "instance_connect_retry": 2,
     "ssh_ready_timeout": 20000,
     "ssh_keep_alive_interval": 8000,
     "ins_side": {
@@ -46,7 +46,7 @@
         },
         "incremental_backup": {
             "enable": true,
-            "interval": 180000,
+            "interval": 900000,
             "dest_dir": "/root/increments",
             "scripts": {
                 "backup": "incre_backup.sh",

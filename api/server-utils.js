@@ -27,7 +27,8 @@ const insTempConfigPath = path.join(__dirname, `../${serverTempPath}/${insTempCo
 // Minecraft服务器信息文件的绝对路径
 const minecraftServerInfoPath = path.join(__dirname, `../${serverTempPath}/mc_server_info.json`);
 // 增量备份文件记录数据
-const backupRecordPath = path.join(__dirname, `../${serverTempPath}/backup_records.json`);
+const backupRecordName = 'backup_record.json';
+const backupRecordPath = path.join(__dirname, `../${serverTempPath}/${backupRecordName}`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
 const remoteDir = configs['remoteDir'];
 
@@ -219,7 +220,7 @@ function clearServerTemp() {
         let files = fs.readdirSync(serverTempPath);
         files.forEach((tmp) => {
             // 排除增量备份记录文件，这个是额外删除的
-            if (!(tmp === backupRecordPath))
+            if (!(tmp === backupRecordName))
                 fs.rmSync(path.join(__dirname, `../${serverTempPath}`, tmp));
         });
         return true;

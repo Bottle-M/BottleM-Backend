@@ -5,7 +5,7 @@
     "permissions": {
         "moderator1": [
             "server.maintenance.*",
-            "server.normal.launch",
+            "server.normal.*",
             "server.command.*",
             "backend.*"
         ]

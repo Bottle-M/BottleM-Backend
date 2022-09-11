@@ -6,16 +6,21 @@
 
 # 打包后的文件名(文件名.tar.lz4)
 PACK_FILE_NAME="$BACKUP_NAME.tar.lz4"
+# 进入要打包的目录
+cd $BACKUP_DEST_DIR
+
+# lz4压缩打包
+tar -I lz4 -cPf $PACK_FILE_NAME *
+
 # 打包后的文件路径
 PACK_FILE_PATH="$BACKUP_DEST_DIR/$PACK_FILE_NAME"
 
-# lz4压缩打包
-tar -I lz4 -cPf $PACK_FILE_PATH "$BACKUP_DEST_DIR"/*
+cd /root
 
 # 上传到COS
 ./coscli cp $PACK_FILE_PATH "cos://minecraft/incremental/$PACK_FILE_NAME"
 
-# 移除本地的增量备份文件
+# 移除本地的增量备份文件，这里不删除，实例端也会自动删除
 if [ $BACKUP_DEST_DIR ]; then
     # 防止BACKUP_DEST_DIR为空，那样就出大事了
     rm -rf "$BACKUP_DEST_DIR/*"

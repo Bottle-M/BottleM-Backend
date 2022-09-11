@@ -325,6 +325,10 @@ class Server {
             cleanTasks.push(
                 cloud.elasticDelKey(keyId).then(res => {
                     outputer(1, `Key ${keyId} was deleted.`);
+                }).catch(err => {
+                    // 容错处理，可能存在已经被删除的情况
+                    outputer(2, `Key ${keyId} was not deleted: ${err}`);
+                    return Promise.resolve();
                 }),
                 // 如果密匙对已经创建，可能有失去控制的实例，这里也需要进行清除
                 utils.terminateOOCIns().then(res => {
@@ -337,6 +341,10 @@ class Server {
             cleanTasks.push(
                 cloud.terminateInstance(insId).then(res => {
                     outputer(1, `Instance ${insId} was terminated.`);
+                }).catch(err => {
+                    // 容错处理，可能存在已经被删除的情况
+                    outputer(2, `Instance ${insId} was not terminated: ${err}`);
+                    return Promise.resolve();
                 })
             );
         // 保证所有清理任务都执行完毕
@@ -443,15 +451,15 @@ module.exports = {
             // 出现了错误，阻止服务器启动
             resultObj.msg = 'Error exists, unable to launch the server';
         } else {
-            if (utils.backupExists() && !restore) {
-                // 存在增量备份，这说明上次实例端没有正常退出
-                resultObj.msg = 'Urgent backup exists, please use action: restorelaunch';
-            } else {
-                try {
-                    // 检查是否有launch.lock文件
-                    fs.statSync(lockFilePath);
-                    resultObj.msg = 'Server Already Launched';
-                } catch (e) {
+            try {
+                // 检查是否有launch.lock文件
+                fs.statSync(lockFilePath);
+                resultObj.msg = 'Server Already Launched';
+            } catch (e) {
+                if (utils.backupExists() && !restore) {
+                    // 存在增量备份，这说明上次实例端没有正常退出
+                    resultObj.msg = 'Urgent backup exists, please use action: restorelaunch';
+                } else {
                     // 创建launch.lock文件
                     utils.elasticWrite(lockFilePath, `Launched at ${new Date().toISOString()}`);
                     ServerDeploy.entry(maintain, restore);
