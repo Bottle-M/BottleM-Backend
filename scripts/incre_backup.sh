@@ -4,13 +4,13 @@
 # 在本脚本末尾你可以rm掉目录中的所有文件，不rm的话实例端也会自动清空
 # 本脚本有独有环境变量：BACKUP_DEST_DIR(备份目标目录) RESTORE_DEST_DIR(恢复备份目标目录)，这个脚本只需把BACKUP_DEST_DIR中的文件打包上传即可
 
-# 打包后的文件名(时间戳.tar.lz4)
+# 打包后的文件名(文件名.tar.lz4)
 PACK_FILE_NAME="$BACKUP_NAME.tar.lz4"
 # 打包后的文件路径
 PACK_FILE_PATH="$BACKUP_DEST_DIR/$PACK_FILE_NAME"
 
 # lz4压缩打包
-tar -I lz4 -cPf $PACK_FILE_PATH "$BACKUP_DEST_DIR/*"
+tar -I lz4 -cPf $PACK_FILE_PATH "$BACKUP_DEST_DIR"/*
 
 # 上传到COS
 ./coscli cp $PACK_FILE_PATH "cos://minecraft/incremental/$PACK_FILE_NAME"

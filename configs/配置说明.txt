@@ -28,6 +28,7 @@ api_configs:
         - max_spot_price 最大竞价出价（单位：元）
     instance_run_timeout - 等待实例运行的最长时间（单位：毫秒）
     instance_deploy_sh - BottleM实例“基地”部署的Shell脚本文件名，脚本存放在./scripts/中
+    instance_connect_retry - 连接实例的重试次数，当insSideMonitor连接实例发生错误(err)时，会至多重试这么多次
     ssh_ready_timeout - ssh连接实例的超时时间（单位：毫秒）
     ssh_keep_alive_interval - ssh保持连接的间隔时间（单位：毫秒）
     ins_side - 实例端的配置
@@ -58,14 +59,23 @@ api_configs:
             - enable 是否启用增量备份
                 【默认】true
 
+            - interval 增量备份间隔时间（单位：毫秒）
+                【默认】900000
+
             - dest_dir 服务器运行中增量备份的输出目录
                 必须是绝对路径
                 【默认】'/root/increments'
 
             - scripts 增量备份上传/下载相关脚本文件名，会从remote_dir中读取
 
-                - get_fragments 下载增量备份碎片的脚本文件名
-                    【默认】'get_fragments.sh'
+                - backup 打包压缩包并上传一次增量备份的脚本文件名
+                    【默认】'incre_backup.sh'
+
+                - restore 恢复一个压缩包中的增量备份文件
+                    【默认】'incre_restore.sh'
+
+                - discard 抛弃所有增量备份的脚本文件名
+                    【默认】'incre_discard.sh'
 
             - src_dirs 增量备份针对的目录，是一个数组
                 必须是绝对路径
@@ -136,6 +146,8 @@ status_codes:
         RESTORE_DEST_DIR - 恢复备份目标目录
         - 仅限backup和restore脚本：
             BACKUP_NAME - 提供的备份文件名，必须用上，不包括扩展名
+        - 仅限discard脚本：
+            BACKUP_NAME_LIST - 提供的备份文件名列表，不包括扩展名，形如file1.txt file2.txt file3.txt
 
 
 
@@ -160,3 +172,5 @@ check_packed_server_size为0时，服务器不会自动删除压缩包，需要�
 一定要记得配置安全组，开启Websocket端口。
 
 RCON端口一定不要在安全组中开放！仅在本地使用！不然是不安全的
+
+如果没有开启增量备份，实例被强制回收时不会进入紧急模式。

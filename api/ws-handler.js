@@ -92,6 +92,7 @@ function router(recvObj, ws) {
                 // 如果实例端发送过来的records=null，说明增量备份用不上，会删除本地的增量备份记录
                 let { records, invoke } = recvObj; // 获得备份记录
                 if (invoke === true) {
+                    console.log('[Incremental Backups were invoked]');
                     utils.recordBackup(records, true); // 删除备份记录
                 } else {
                     utils.recordBackup(records); // 记录备份记录

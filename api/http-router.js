@@ -63,7 +63,6 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
                 case 'discardbackup': // 抛弃增量备份
                     {
                         server.launch(underMaintenance, 'discard', resultObj);
-                        resultObj.msg = 'Incremental Backup Discarded';
                     }
                     break outer;
                 default:

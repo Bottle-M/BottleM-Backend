@@ -55,6 +55,14 @@ function backupExists() {
 }
 
 /**
+ * （同步）返回增量备份文件记录数据
+ * @returns {Array|null} 数组，如果失败会返回null
+ */
+function readBackupRecs() {
+    return jsons.scRead(backupRecordPath);
+}
+
+/**
  * （同步）记录增量备份的文件
  * @param {Array} data 文件信息数组
  * @param {Boolean} invoke 是否删除（抛弃增量备份）
@@ -211,7 +219,7 @@ function clearServerTemp() {
         let files = fs.readdirSync(serverTempPath);
         files.forEach((tmp) => {
             // 排除增量备份记录文件，这个是额外删除的
-            if (!tmp === backupRecordPath)
+            if (!(tmp === backupRecordPath))
                 fs.rmSync(path.join(__dirname, `../${serverTempPath}`, tmp));
         });
         return true;
@@ -415,7 +423,7 @@ function connectInsSSH(ip = '') {
             console.log('Successfully connected to the instance.');
             res(sshConn); // 把连接传下去
         }).on('error', err => {
-            rej(`Failed to connect to the instance: ${err}`);
+            rej(`[SSH]Failed to connect to the instance: ${err}`);
         }).connect({
             host: ip,
             port: 22,
@@ -549,7 +557,7 @@ function connectInsSide() {
                 wsHeartBeat.call(ws); // 激发一次心跳
                 res(ws);
             }).on('error', err => {
-                rej(`Failed to connect to the instance side: ${err}`);
+                rej(`[WebSocket]Failed to connect to the instance side: ${err}`);
             });
         });
     }).then(ws => {
@@ -631,5 +639,6 @@ module.exports = {
     storeCommand,
     flushCommands,
     recordBackup,
-    backupExists
+    backupExists,
+    readBackupRecs
 }

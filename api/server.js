@@ -173,10 +173,11 @@ class Server {
         }).then((sshConn) => {
             utils.setStatus(2102); // 开始部署实例上的“基地”
             // 先创建实例端配置临时文件
-            // 将部署配置(是否是维护模式,是否要恢复增量备份)也上传到实例上
+            // 将部署配置(是否是维护模式,是否要恢复增量备份)
             let [insTempConfigPath, insTempConfigName] = utils.makeInsSideConfig({
                 'under_maintenance': this.maintain,
-                'restore_before_deploy': this.restore
+                'restore_before_deploy': this.restore,
+                'backup_records': utils.readBackupRecs() // 读取备份记录，如果没有会返回null
             });
             // 通过sftp传输部署脚本
             return ascFs.readdir(localScriptsDir).then(fileArr => {
@@ -238,10 +239,11 @@ class Server {
     }
     /**
      * 通过WebSocket和实例端进行连接，进行后续流程
+     * @param {Number} retry 重试次数(只有抛出错误时才会重试)
      * @return {Promise} 
      * @note 这是第三个环节
      */
-    insSideMonitor() {
+    insSideMonitor(retry = 0) {
         let that = this;
         utils.setStatus(2200); // 尝试连接实例端
         utils.setMCInfo([
@@ -291,7 +293,21 @@ class Server {
                 // 实例端退出，服务器流程走完，退出monitor
                 return Promise.resolve('InsSide passed away, see you!');
             }
-        })
+        }).catch(err => {
+            // 无法连接到实例端，说明实例端死亡了
+            // 退出monitor
+            if (retry >= apiConfigs['instance_connect_retry']) {
+                outputer(2, `${err}, good bye...`);
+                return Promise.resolve('Oops, InsSide died...');
+            } else {
+                outputer(2, `${err}, retrying...`);
+                return new Promise((res) => {
+                    setTimeout(res, 3000); // 3秒后重试连接
+                }).then(res => {
+                    return that.insSideMonitor(retry + 1);
+                });
+            }
+        });
     }
     /**
      * 一次流程走完，清理这次部署的残余内容
@@ -438,7 +454,7 @@ module.exports = {
                 } catch (e) {
                     // 创建launch.lock文件
                     utils.elasticWrite(lockFilePath, `Launched at ${new Date().toISOString()}`);
-                    ServerDeploy.entry();
+                    ServerDeploy.entry(maintain, restore);
                     resultObj.msg = 'Starting to deploy the server!';
                     resultObj.code = 0; // 0 代表交由异步处理
                 }
@@ -449,5 +465,7 @@ module.exports = {
     /**
      * 进程意外重启之后依靠resume函数重新进入流程
      */
-    resume: ServerDeploy.entry
+    resume: () => {
+        ServerDeploy.entry();
+    }
 }
