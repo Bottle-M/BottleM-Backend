@@ -46,7 +46,7 @@
         },
         "incremental_backup": {
             "enable": true,
-            "interval": 900000,
+            "interval": 600000,
             "dest_dir": "/root/increments",
             "scripts": {
                 "backup": "incre_backup.sh",

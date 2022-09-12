@@ -8,30 +8,30 @@ const outputer = require('../basic/output');
 // 记录待删除密匙对，防止撞车
 const deletingKeyPairs = new Object();
 // 设置EndPoint
-const cvmEndPoint = 'cvm.tencentcloudapi.com';
+const CVM_END_POINT = 'cvm.tencentcloudapi.com';
 // 获得除了secret之外的配置
-const qcloudConfigs = configs['apiConfigs']['qcloud'];
+const QCLOUD_CONFIGS = configs['apiConfigs']['qcloud'];
 // 获得腾讯云相关Secret配置
-const qcloudSecret = configs['secretConfigs']['qcloud'];
-const clientConfig = {
+const QCLOUD_SECRETS = configs['secretConfigs']['qcloud'];
+const CLIENT_CONFIGS = {
     credential: {
-        secretId: qcloudSecret['secretId'],
-        secretKey: qcloudSecret['secretKey'],
+        secretId: QCLOUD_SECRETS['secretId'],
+        secretKey: QCLOUD_SECRETS['secretKey'],
     },
-    region: qcloudConfigs['region'],
+    region: QCLOUD_CONFIGS['region'],
     profile: {
         httpProfile: {
-            endpoint: cvmEndPoint,
+            endpoint: CVM_END_POINT,
         },
     },
 };
 // 相关的环境变量
-const environment = {
-    'QCLOUD_SECRET_ID': qcloudSecret['secretId'],
-    'QCLOUD_SECRET_KEY': qcloudSecret['secretKey']
+const ENVIRONMENT = {
+    'QCLOUD_SECRET_ID': QCLOUD_SECRETS['secretId'],
+    'QCLOUD_SECRET_KEY': QCLOUD_SECRETS['secretKey']
 };
 
-const client = new CvmClient(clientConfig);
+const client = new CvmClient(CLIENT_CONFIGS);
 
 /**
  * 请求API以获得实例列表，并根据配置和正则表达式进行筛选
@@ -51,11 +51,11 @@ function filterInsType(outputPath = '') {
         ]
     },
         // 获得正则表达式
-        regex = new RegExp(qcloudConfigs['instance_family_regex']),
-        cpuSpecified = qcloudConfigs['instance_cpu'],
-        memSpecified = qcloudConfigs['instance_memory'],
-        bandSpecified = qcloudConfigs['instance_bandwidth'],
-        priceRange = qcloudConfigs['hour_price_range'];
+        regex = new RegExp(QCLOUD_CONFIGS['instance_family_regex']),
+        cpuSpecified = QCLOUD_CONFIGS['instance_cpu'],
+        memSpecified = QCLOUD_CONFIGS['instance_memory'],
+        bandSpecified = QCLOUD_CONFIGS['instance_bandwidth'],
+        priceRange = QCLOUD_CONFIGS['hour_price_range'];
     return client.DescribeZoneInstanceConfigInfos(params).then(
         (data) => {
             let resultArr = data['InstanceTypeQuotaSet'],
@@ -104,7 +104,7 @@ function filterInsType(outputPath = '') {
 function generateKey() {
     let params = {
         "KeyName": `for_minecraft_${Math.round(Math.random() * 100)}`,
-        "ProjectId": qcloudConfigs['project_id']
+        "ProjectId": QCLOUD_CONFIGS['project_id']
     };
     return client.CreateKeyPair(params).then(
         (data) => {
@@ -243,21 +243,21 @@ function createInstance(insConfigs, keyId) {
             "InstanceChargeType": "SPOTPAID",
             "Placement": {
                 "Zone": currentConfig['Zone'],
-                "ProjectId": qcloudConfigs['project_id']
+                "ProjectId": QCLOUD_CONFIGS['project_id']
             },
             "InstanceType": currentConfig['InstanceType'],
-            "ImageId": qcloudConfigs['image_id'],
+            "ImageId": QCLOUD_CONFIGS['image_id'],
             "SystemDisk": {
-                "DiskType": qcloudConfigs['system_disk']['disk_type'],
-                "DiskSize": qcloudConfigs['system_disk']['disk_size']
+                "DiskType": QCLOUD_CONFIGS['system_disk']['disk_type'],
+                "DiskSize": QCLOUD_CONFIGS['system_disk']['disk_size']
             },
             "VirtualPrivateCloud": {
-                "VpcId": qcloudConfigs['vpc']['vpc_id'],
-                "SubnetId": qcloudConfigs['vpc']['subnet_id']
+                "VpcId": QCLOUD_CONFIGS['vpc']['vpc_id'],
+                "SubnetId": QCLOUD_CONFIGS['vpc']['subnet_id']
             },
             "InternetAccessible": {
                 "InternetChargeType": "TRAFFIC_POSTPAID_BY_HOUR",
-                "InternetMaxBandwidthOut": qcloudConfigs['max_bandwidth_out'],
+                "InternetMaxBandwidthOut": QCLOUD_CONFIGS['max_bandwidth_out'],
                 "PublicIpAssigned": true
             },
             "InstanceName": "Minecraft",
@@ -267,13 +267,13 @@ function createInstance(insConfigs, keyId) {
                 ]
             },
             "SecurityGroupIds": [
-                qcloudConfigs['security_group_id']
+                QCLOUD_CONFIGS['security_group_id']
             ],
-            "HostName": qcloudConfigs['host_name'],
+            "HostName": QCLOUD_CONFIGS['host_name'],
             "InstanceMarketOptions": {
                 "MarketType": "spot",
                 "SpotOptions": {
-                    "MaxPrice": qcloudConfigs['max_spot_price'].toString(), // 这里要求的竟然是字符串类型
+                    "MaxPrice": QCLOUD_CONFIGS['max_spot_price'].toString(), // 这里要求的竟然是字符串类型
                     "SpotInstanceType": "one-time"
                 }
             },
@@ -332,7 +332,7 @@ function describeInstance(insId = '') {
                 "Values": [
                     // 筛选出当前项目的实例
                     // 似乎Filters中的Integer字段还是要转换成字符串才有用。
-                    String(qcloudConfigs['project_id'])
+                    String(QCLOUD_CONFIGS['project_id'])
                 ]
             }
         ]
@@ -367,7 +367,7 @@ function describeInstance(insId = '') {
 }
 
 module.exports = {
-    environment,
+    environment: ENVIRONMENT,
     filterInsType: filterInsType,
     generateKey: generateKey,
     deleteKey: deleteKey,

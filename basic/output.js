@@ -1,23 +1,23 @@
 // 控制台消息输出模块（同时会记录日志）
 'use strict';
-const chalk = require('chalk');
 const { promises: fs, statSync, mkdirSync, writeFileSync } = require('fs');
+const chalk = require('chalk');
 const path = require('path');
 // 载入配置
-const apiConfigs = require('./config-box')['apiConfigs'];
+const API_CONFIGS = require('./config-box')['apiConfigs'];
 // 从配置中获得日志绝对目录（默认为./api_logs）
-const logDir = path.join(__dirname, '..', apiConfigs['logs_dir'] || './api_logs');
+const LOG_DIR = path.join(__dirname, '..', API_CONFIGS['logs_dir'] || './api_logs');
 // .logstatus日志状态文件
-const statusFile = path.join(logDir, '.logstatus');
+const STATUS_FILE_PATH = path.join(LOG_DIR, '.logstatus');
 
 try {
     // 检查日志目录是否创建
-    statSync(logDir);
+    statSync(LOG_DIR);
 } catch (e) {
     // 创建日志目录
     try {
         console.log('Creating Directory for logs.');
-        mkdirSync(logDir);
+        mkdirSync(LOG_DIR);
         console.log('Directory for logs created.');
     } catch (e) {
         // 创建目录失败
@@ -28,11 +28,11 @@ try {
 
 try {
     // 检查有没有lognum文件(存放日志数量和行数)
-    statSync(statusFile);
+    statSync(STATUS_FILE_PATH);
 } catch (e) {
     // 不存在该文件，写入初始数据0 0（目前的行数，日志数量）
     try {
-        writeFileSync(statusFile, '0 0', {
+        writeFileSync(STATUS_FILE_PATH, '0 0', {
             encoding: 'utf8',
             flag: 'w'
         });
@@ -50,23 +50,23 @@ try {
  * @param {Number} time 日志时间戳（不指定则自动获取当前时间）
  */
 function writeLogs(log, time = 0) {
-    let currentLog = path.join(logDir, 'latest.log'), // 当前日志文件
+    let currentLog = path.join(LOG_DIR, 'latest.log'), // 当前日志文件
         currentDate = time ? new Date(time) : new Date();
     // 读取日志状态文件
-    fs.readFile(statusFile, { encoding: 'utf8' }).then(async (res) => {
+    fs.readFile(STATUS_FILE_PATH, { encoding: 'utf8' }).then(async (res) => {
         let [lineNum, logsNum] = res.split(' '); // 获得行数和日志数量
         let overflowed = 0; // 超出的日志数量
-        if (Number(lineNum) >= apiConfigs['rows_per_log']) { // latest日志行数超过指定行数
+        if (Number(lineNum) >= API_CONFIGS['rows_per_log']) { // latest日志行数超过指定行数
             try {
                 logsNum = Number(logsNum) + 1; // 日志储存数量加1
-                if ((overflowed = Number(logsNum) - apiConfigs['max_logs_retained']) > 0) { // 防止日志数量超出
-                    logsNum = apiConfigs['max_logs_retained'];
+                if ((overflowed = Number(logsNum) - API_CONFIGS['max_logs_retained']) > 0) { // 防止日志数量超出
+                    logsNum = API_CONFIGS['max_logs_retained'];
                 }
                 // 把当前的latest.log重命名为 时间戳.old.log
-                await fs.rename(currentLog, path.join(logDir, `${currentDate.getTime()}.old.log`));
+                await fs.rename(currentLog, path.join(LOG_DIR, `${currentDate.getTime()}.old.log`));
                 lineNum = 0; // 行数归零
                 // 写入.logstatus
-                await fs.writeFile(statusFile, `${lineNum} ${logsNum}`, {
+                await fs.writeFile(STATUS_FILE_PATH, `${lineNum} ${logsNum}`, {
                     encoding: 'utf8',
                     flag: 'w'
                 });
@@ -77,7 +77,7 @@ function writeLogs(log, time = 0) {
         }
         if (overflowed > 0) { // 保留的日志数量超过配置数量
             // 扫描当前的日志目录
-            fs.readdir(logDir).then((res) => {
+            fs.readdir(LOG_DIR).then((res) => {
                 // 按时间升序排序
                 res = res.filter(item => item.includes('.old')); // 过滤日志格式
                 res.sort((a, b) => {
@@ -88,7 +88,7 @@ function writeLogs(log, time = 0) {
                 let forDeletion = res.slice(0, overflowed); // 要删除的日志
                 forDeletion.forEach(async (file) => {
                     // 删除日志
-                    await fs.rm(path.join(logDir, file), {
+                    await fs.rm(path.join(LOG_DIR, file), {
                         force: true
                     });
                     output(1, `Deleted log: ${file}`, false);
@@ -113,7 +113,7 @@ function writeLogs(log, time = 0) {
             // 行数增加
             lineNum++;
             // 写入.logstatus，更新行数
-            return fs.writeFile(statusFile, `${lineNum} ${logsNum}`, {
+            return fs.writeFile(STATUS_FILE_PATH, `${lineNum} ${logsNum}`, {
                 encoding: 'utf8',
                 flag: 'w'
             });

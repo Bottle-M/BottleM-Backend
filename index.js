@@ -1,11 +1,11 @@
 'use strict';
 const httpServer = require('http');
 const outputer = require('./basic/output');
-const apiConfigs = require('./basic/config-box')['apiConfigs'];
 const router = require('./api/http-router');
 const auther = require('./basic/token-auth');
+const API_CONFIGS = require('./basic/config-box')['apiConfigs'];
 
-let port = apiConfigs['api_port']; // 获取配置的端口号
+let port = API_CONFIGS['api_port']; // 获取配置的端口号
 httpServer.createServer(function (req, res) {
     let reqUrl = new URL(req.url, 'http://localhost'), // 构建一个URL对象
         reqPath = reqUrl.pathname, // 获得请求路径

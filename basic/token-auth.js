@@ -1,6 +1,5 @@
 // token鉴权模块
 'use strict';
-const path = require('path');
 const configs = require('./config-box');
 
 // 内存中要储存一些临时token，供游客使用

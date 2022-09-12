@@ -3,31 +3,31 @@
 const fs = require('fs');
 const ascFs = fs.promises;
 const path = require('path');
-const configs = require('../basic/config-box');
-const apiConfigs = configs['apiConfigs'];
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
 const utils = require('./server-utils');
 const wsHandler = require('./ws-handler');
+const configs = require('../basic/config-box');
+const API_CONFIGS = configs['apiConfigs'];
 // launch.lock这个文件存在则代表服务器已经部署
-const lockFilePath = configs['launchLockFile'];
+const LOCK_FILE_PATH = configs['launchLockPath'];
 // login.pem，服务器登录密匙文件
-const keyFilePath = configs['loginKeyFile'];
+const KEY_FILE_PATH = configs['loginKeyPath'];
 // instance_details实例详细信息文件路径
-const insDetailsFilePath = configs['insDetailsFile'];
+const INS_DETAILS_FILE_PATH = configs['insDetailsPath'];
 // 所有Shell脚本所在目录
-const localScriptsDir = path.join(__dirname, '../scripts/');
+const LOCAL_SCRIPTS_DIR = path.join(__dirname, '../scripts/');
 // 所有必要数据上传到实例中的哪里（绝对路径）
-const remoteDir = configs['remoteDir'];
+const REMOTE_DIR = configs['remoteDir'];
 // 实例端部署脚本的绝对路径（务必写成绝对路径）
-const insDeployScriptPath = utils.toPosixSep(
-    path.join(remoteDir, apiConfigs['instance_deploy_sh'])
+const INS_DEPLOY_SCRIPT_PATH = utils.toPosixSep(
+    path.join(REMOTE_DIR, API_CONFIGS['instance_deploy_sh'])
 );
 
 class Server {
     constructor() {
-        this.maintain = false; // 默认不是维护模式
-        this.restore = false; // 默认不对增量备份(如果有的话)进行任何操作
+        this._maintain = false; // 默认不是维护模式
+        this._restore = false; // 默认不对增量备份(如果有的话)进行任何操作
     }
     /**
      * 比价，然后创建实例
@@ -35,8 +35,7 @@ class Server {
      * @note 这是第一个环节
      */
     compareAndRun() {
-        let statusCode = utils.getStatus('status_code'),
-            that = this;
+        let statusCode = utils.getStatus('status_code');
         // 这里用于resume，在进程重启后能恢复到上回的进度
         if (statusCode > 2000) { // 上次意外终止时状态并不是Idling或者出现错误
             let insId = utils.getInsDetail('instance_id');
@@ -58,7 +57,7 @@ class Server {
         // 以下开始是正常的创建实例流程
         utils.setStatus(2001); // 开始比价
         // 可用实例列表（未经筛选）的输出路径，用于检查
-        const outputPath = path.join(__dirname, `../${configs['serverTemp']}/all_available_ins.json`);
+        const outputPath = path.join(__dirname, `../${configs['serverTempDir']}/all_available_ins.json`);
         return cloud.filterInsType(outputPath).then(insConfigs => {
             insConfigs.sort((former, latter) => { // 根据价格、内网带宽进行排序
                 // 计算权重数：先把折扣价*1000，减去内网带宽*20。数值越小，权重越大
@@ -80,14 +79,14 @@ class Server {
             return cloud.generateKey().then(keyObj => {
                 let keyId = keyObj['keyId'];
                 // 写入密钥文件
-                return ascFs.writeFile(keyFilePath, keyObj['privateKey'], {
+                return ascFs.writeFile(KEY_FILE_PATH, keyObj['privateKey'], {
                     encoding: 'utf8'
                 }).then(res => {
                     let detailedData = {
                         instance_key_id: keyId
                     };
                     // 将密匙ID写入instanceDetail文件
-                    return ascFs.writeFile(insDetailsFilePath, JSON.stringify(detailedData), {
+                    return ascFs.writeFile(INS_DETAILS_FILE_PATH, JSON.stringify(detailedData), {
                         encoding: 'utf8'
                     })
                 }).then(res => {
@@ -153,7 +152,7 @@ class Server {
                     rej(`Error occured while querying the instance: ${err}`);
                 });
                 alreadyWaitFor += queryInterval;
-                if (alreadyWaitFor >= apiConfigs['instance_run_timeout']) {
+                if (alreadyWaitFor >= API_CONFIGS['instance_run_timeout']) {
                     // 等待超时，实例仍然没有启动，肯定出现了问题
                     clearInterval(timer);
                     rej(`Instance is not going to run: ${err}`);
@@ -173,30 +172,30 @@ class Server {
         }).then((sshConn) => {
             utils.setStatus(2102); // 开始部署实例上的“基地”
             // 先创建实例端配置临时文件
-            // 将部署配置(是否是维护模式,是否要恢复增量备份)
             let [insTempConfigPath, insTempConfigName] = utils.makeInsSideConfig({
-                'under_maintenance': this.maintain,
-                'restore_before_deploy': this.restore,
+                // 将部署配置(是否是维护模式,是否要恢复增量备份)写入实例端配置文件
+                'under_maintenance': this._maintain,
+                'restore_before_deploy': this._restore,
                 'backup_records': utils.readBackupRecs() // 读取备份记录，如果没有会返回null
             });
             // 通过sftp传输部署脚本
-            return ascFs.readdir(localScriptsDir).then(fileArr => {
+            return ascFs.readdir(LOCAL_SCRIPTS_DIR).then(fileArr => {
                 // 将scripts目录下所有文件名和目录绝对路径连起来
                 fileArr = fileArr.map((file) =>
                     [
-                        path.join(localScriptsDir, file),
-                        path.join(remoteDir, file)
+                        path.join(LOCAL_SCRIPTS_DIR, file),
+                        path.join(REMOTE_DIR, file)
                     ]
                 );
                 // 把实例端临时配置文件也加入传输队列
                 fileArr.push([
                     insTempConfigPath,
                     utils.toPosixSep(
-                        path.join(remoteDir, insTempConfigName)
+                        path.join(REMOTE_DIR, insTempConfigName)
                     )
                 ]);
                 // 检查并创建remoteDir目录
-                return utils.createMultiDirs(remoteDir)
+                return utils.createMultiDirs(REMOTE_DIR)
                     .then(success => {
                         return utils.fastPutFiles(sshConn, fileArr);
                     })
@@ -210,7 +209,7 @@ class Server {
         }).then((sshConn) => {
             utils.setStatus(2103); // 开始执行实例端部署脚本
             return new Promise((res, rej) => {
-                sshConn.exec(`${insDeployScriptPath}`, (err, stream) => {
+                sshConn.exec(`${INS_DEPLOY_SCRIPT_PATH}`, (err, stream) => {
                     if (err) {
                         rej(err);
                         return;
@@ -247,10 +246,14 @@ class Server {
         let that = this;
         utils.setStatus(2200); // 尝试连接实例端
         utils.setMCInfo([
-            'connect_time',
-            'idling_time_left'
+            'connect_time', // 记录连接时间
+            'idling_time_left', // 初始化剩余空闲时间
+            'players_online', // 初始化在线玩家数
+            'players_max' // 初始化最大玩家数
         ], [
             Date.now(),
+            0,
+            0,
             0
         ]); // 创建Minecraft服务器信息文件
         return utils.connectInsSide().then((ws) => {
@@ -296,11 +299,12 @@ class Server {
         }).catch(err => {
             // 无法连接到实例端，说明实例端死亡了
             // 退出monitor
-            if (retry >= apiConfigs['instance_connect_retry']) {
+            const maxRetry = API_CONFIGS['instance_connect_retry'];
+            if (retry >= maxRetry) {
                 outputer(2, `${err}, good bye...`);
                 return Promise.resolve('Oops, InsSide died...');
             } else {
-                outputer(2, `${err}, retrying...`);
+                outputer(2, `${err}, retrying...(${retry + 1}/${maxRetry})`);
                 return new Promise((res) => {
                     setTimeout(res, 3000); // 3秒后重试连接
                 }).then(res => {
@@ -364,8 +368,8 @@ class Server {
     entry(maintain, restore) {
         let that = this;
         // 更新选项
-        this.maintain = maintain;
-        this.restore = restore;
+        this._maintain = maintain;
+        this._restore = restore;
         this.compareAndRun() // 交由异步函数处理
             .then(insId => that.setUpBase(insId)) // 开始在实例上建设“基地”
             .then(res => that.insSideMonitor())
@@ -453,7 +457,7 @@ module.exports = {
         } else {
             try {
                 // 检查是否有launch.lock文件
-                fs.statSync(lockFilePath);
+                fs.statSync(LOCK_FILE_PATH);
                 resultObj.msg = 'Server Already Launched';
             } catch (e) {
                 if (utils.backupExists() && !restore) {
@@ -461,7 +465,7 @@ module.exports = {
                     resultObj.msg = 'Urgent backup exists, please use action: restorelaunch';
                 } else {
                     // 创建launch.lock文件
-                    utils.elasticWrite(lockFilePath, `Launched at ${new Date().toISOString()}`);
+                    utils.elasticWrite(LOCK_FILE_PATH, `Launched at ${new Date().toISOString()}`);
                     ServerDeploy.entry(maintain, restore);
                     resultObj.msg = 'Starting to deploy the server!';
                     resultObj.code = 0; // 0 代表交由异步处理
@@ -474,6 +478,7 @@ module.exports = {
      * 进程意外重启之后依靠resume函数重新进入流程
      */
     resume: () => {
+        // 这样写是为了保证entry方法的this指向实例ServerDeploy
         ServerDeploy.entry();
     }
 }

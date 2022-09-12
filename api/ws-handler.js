@@ -90,14 +90,15 @@ function router(recvObj, ws) {
         case 'backup_sync': // 同步增量备份相关信息
             {
                 // 如果实例端发送过来的records=null，说明增量备份用不上，会删除本地的增量备份记录
-                let { records, invoke } = recvObj; // 获得备份记录
-                if (invoke === true) {
-                    console.log('[Incremental Backups were invoked]');
-                    utils.recordBackup(records, true); // 删除备份记录
-                } else {
-                    utils.recordBackup(records); // 记录备份记录
-                }
+                let { name, time } = recvObj; // 获得备份记录
+                utils.recordBackup({
+                    name: name,
+                    time: time
+                }); // 记录备份记录
             }
+            break;
+        case 'revoke_backup': // 舍弃现有的增量备份记录
+            utils.recordBackup(null, true); // 删除备份记录
             break;
     }
 }

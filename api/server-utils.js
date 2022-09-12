@@ -5,39 +5,39 @@ const ascFs = fs.promises;
 const chalk = require('chalk');
 const path = require('path');
 const cloud = require('./qcloud');
-const configs = require('../basic/config-box');
-const apiConfigs = configs['apiConfigs'];
 const jsons = require('../basic/json-scaffold');
 const outputer = require('../basic/output');
-const {
-    backendStatusFile: backendStatusPath,
-    insDetailsFile: insDetailsFilePath,
-    launchLockFile: lockFilePath,
-    mcTempCmdFile: mcTempCmdFilePath,
-    serverTemp: serverTempPath
-} = configs;
 const WebSocket = require('ws');
 const ssh2Client = require('ssh2').Client;
+const configs = require('../basic/config-box');
+const API_CONFIGS = configs['apiConfigs'];
+const {
+    backendStatusPath: BACKEND_STATUS_FILE_PATH,
+    insDetailsPath: INS_DETAILS_FILE_PATH,
+    launchLockPath: LOCK_FILE_PATH,
+    mcTempCmdPath: MC_TEMP_CMD_FILE_PATH,
+    serverTempDir: SERVER_TEMP_DIR
+} = configs;
 // 实例端最初配置对象
-const initialInsSideConfigs = apiConfigs['ins_side'];
+const INITIAL_INS_SIDE_CONFIGS = API_CONFIGS['ins_side'];
 // 实例端临时配置的文件名（如果这一项改了，InsSide的源码也要改）
-const insTempConfigName = 'ins_side_configs.tmp.json';
+const INS_TEMP_CONFIG_FILE_NAME = 'ins_side_configs.tmp.json';
 // 实例端临时配置的绝对路径
-const insTempConfigPath = path.join(__dirname, `../${serverTempPath}/${insTempConfigName}`);
+const INS_TEMP_CONFIG_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/${INS_TEMP_CONFIG_FILE_NAME}`);
 // Minecraft服务器信息文件的绝对路径
-const minecraftServerInfoPath = path.join(__dirname, `../${serverTempPath}/mc_server_info.json`);
+const MC_SERVER_INFO_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/mc_server_info.json`);
 // 增量备份文件记录数据
-const backupRecordName = 'backup_record.json';
-const backupRecordPath = path.join(__dirname, `../${serverTempPath}/${backupRecordName}`);
+const BACKUP_RECORD_FILE_NAME = 'backup_record.json';
+const BACKUP_RECORD_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/${BACKUP_RECORD_FILE_NAME}`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
-const remoteDir = configs['remoteDir'];
+const REMOTE_DIR = configs['remoteDir'];
 
 // 检查backend_status状态记录文件是否存在
 try {
-    fs.statSync(backendStatusPath);
+    fs.statSync(BACKEND_STATUS_FILE_PATH);
 } catch (e) {
     // 不存在就创建一个
-    fs.writeFileSync(backendStatusPath, JSON.stringify(configs['initialBackendStatus']), {
+    fs.writeFileSync(BACKEND_STATUS_FILE_PATH, JSON.stringify(configs['initialBackendStatus']), {
         encoding: 'utf8'
     });
 }
@@ -48,7 +48,7 @@ try {
  */
 function backupExists() {
     try {
-        fs.statSync(backupRecordPath);
+        fs.statSync(BACKUP_RECORD_FILE_PATH);
         return true;
     } catch (e) {
         return false;
@@ -60,20 +60,22 @@ function backupExists() {
  * @returns {Array|null} 数组，如果失败会返回null
  */
 function readBackupRecs() {
-    return jsons.scRead(backupRecordPath);
+    return jsons.scRead(BACKUP_RECORD_FILE_PATH);
 }
 
 /**
  * （同步）记录增量备份的文件
- * @param {Array} data 文件信息数组
- * @param {Boolean} invoke 是否删除（抛弃增量备份）
+ * @param {Object} dataObj 文件信息对象
+ * @param {Boolean} revokeAll 是否删除（抛弃增量备份）
  */
-function recordBackup(data, invoke = false) {
+function recordBackup(dataObj, revokeAll = false) {
     try {
-        if (invoke) {
-            fs.rmSync(backupRecordPath);
+        if (revokeAll) {
+            fs.rmSync(BACKUP_RECORD_FILE_PATH);
         } else {
-            fs.writeFileSync(backupRecordPath, JSON.stringify(data), {
+            let records = jsons.scRead(BACKUP_RECORD_FILE_PATH) || [];
+            records.push(dataObj);
+            fs.writeFileSync(BACKUP_RECORD_FILE_PATH, JSON.stringify(records), {
                 encoding: 'utf8'
             });
         }
@@ -89,7 +91,7 @@ function recordBackup(data, invoke = false) {
  * @returns {Promise}
  */
 function updateBackendStatus(keys, values) {
-    return jsons.ascSet(backendStatusPath, keys, values).catch(err => {
+    return jsons.ascSet(BACKEND_STATUS_FILE_PATH, keys, values).catch(err => {
         // 设置状态失败，写入日志
         let errMsg = 'Failed to set status: ' + err;
         outputer(2, errMsg);
@@ -119,7 +121,7 @@ function setStatus(code) {
  * @returns {Promise}
  */
 function setInsDetail(keys, values) {
-    return jsons.ascSet(insDetailsFilePath, keys, values).catch(err => {
+    return jsons.ascSet(INS_DETAILS_FILE_PATH, keys, values).catch(err => {
         // 设置状态失败，写入日志
         let errMsg = 'Failed to set Instance Detail: ' + err;
         outputer(2, errMsg);
@@ -177,7 +179,7 @@ function terminateOOCIns() {
  * @returns 对象或者单个类型的值，读取失败会返回null
  */
 function getStatus(key = '') {
-    let status = jsons.scRead(backendStatusPath);
+    let status = jsons.scRead(BACKEND_STATUS_FILE_PATH);
     if (status) {
         return key ? status[key] : status;
     } else {
@@ -191,7 +193,7 @@ function getStatus(key = '') {
  * @returns 对象或者单个类型的值，读取失败会返回null
  */
 function getInsDetail(key = '') {
-    let details = jsons.scRead(insDetailsFilePath);
+    let details = jsons.scRead(INS_DETAILS_FILE_PATH);
     if (details) {
         return key ? details[key] : details;
     } else {
@@ -217,11 +219,11 @@ function safeDel(filePath) {
  */
 function clearServerTemp() {
     try {
-        let files = fs.readdirSync(serverTempPath);
+        let files = fs.readdirSync(SERVER_TEMP_DIR);
         files.forEach((tmp) => {
             // 排除增量备份记录文件，这个是额外删除的
-            if (!(tmp === backupRecordName))
-                fs.rmSync(path.join(__dirname, `../${serverTempPath}`, tmp));
+            if (!(tmp === BACKUP_RECORD_FILE_NAME))
+                fs.rmSync(path.join(__dirname, `../${SERVER_TEMP_DIR}`, tmp));
         });
         return true;
     } catch (err) {
@@ -239,7 +241,7 @@ function errorHandler(msg, time = 0) {
     // 错误信息
     let errMsg = `Fatal:${msg}`,
         errTime = new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }); // 错误发生的时间
-    jsons.ascRead(backendStatusPath).then(parsed => {
+    jsons.ascRead(BACKEND_STATUS_FILE_PATH).then(parsed => {
         let currentCode = Number(parsed['status_code']),
             topDigitDiff = Math.floor(currentCode / 1000) - 1,// 代号最高位数字差
             errCode = currentCode - topDigitDiff * 1000;// 减去最高位数字差
@@ -248,7 +250,7 @@ function errorHandler(msg, time = 0) {
             // 输出错误，记入日志，等级：警告
             outputer(2, errMsg, true, time);
             // 删除部署锁定文件
-            safeDel(lockFilePath);
+            safeDel(LOCK_FILE_PATH);
         } else {
             // 输出错误，记入日志，等级：错误
             outputer(3, errMsg, true, time);
@@ -358,13 +360,13 @@ function fastPutFiles(sshConn, fileArr) {
  */
 function setMCInfo(keys, values) {
     try {
-        fs.statSync(minecraftServerInfoPath); // 检查文件是否存在
+        fs.statSync(MC_SERVER_INFO_FILE_PATH); // 检查文件是否存在
     } catch (e) {
-        elasticWrite(minecraftServerInfoPath, JSON.stringify({
+        elasticWrite(MC_SERVER_INFO_FILE_PATH, JSON.stringify({
             'players_online': 0
         })); // 创建文件
     }
-    jsons.scSet(minecraftServerInfoPath, keys, values);
+    jsons.scSet(MC_SERVER_INFO_FILE_PATH, keys, values);
 }
 
 /**
@@ -373,7 +375,7 @@ function setMCInfo(keys, values) {
  * @returns 对应的信息值
  */
 function getMCInfo(key) {
-    let infoObj = jsons.scRead(minecraftServerInfoPath); // 读取包含服务器信息的对象
+    let infoObj = jsons.scRead(MC_SERVER_INFO_FILE_PATH); // 读取包含服务器信息的对象
     return infoObj[key];
 }
 
@@ -385,17 +387,17 @@ function getMCInfo(key) {
  */
 function makeInsSideConfig(options = {}) {
     // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
-    initialInsSideConfigs['secret_key'] = randStr(128);
+    INITIAL_INS_SIDE_CONFIGS['secret_key'] = randStr(128);
     // 实例端状态码配置
-    initialInsSideConfigs['env'] = Object.assign({
-        'DATA_DIR': remoteDir, // 实例端数据目录
-        'PACK_DIR': initialInsSideConfigs['packed_server_dir'], // 服务端打包后的目录
-        'FRAGMENTS_DIR': initialInsSideConfigs['backup_fragments_dir'], // 增量备份碎片目录
-        'MC_DIR': initialInsSideConfigs['mc_server_dir'] // Minecraft服务端目录
+    INITIAL_INS_SIDE_CONFIGS['env'] = Object.assign({
+        'DATA_DIR': REMOTE_DIR, // 实例端数据目录
+        'PACK_DIR': INITIAL_INS_SIDE_CONFIGS['packed_server_dir'], // 服务端打包后的目录
+        'FRAGMENTS_DIR': INITIAL_INS_SIDE_CONFIGS['backup_fragments_dir'], // 增量备份碎片目录
+        'MC_DIR': INITIAL_INS_SIDE_CONFIGS['mc_server_dir'] // Minecraft服务端目录
     }, cloud.environment); // cloud模块定义的环境变量（包含SECRET）
-    options = Object.assign(options, initialInsSideConfigs);
-    elasticWrite(insTempConfigPath, JSON.stringify(options));
-    return [insTempConfigPath, insTempConfigName];
+    options = Object.assign(options, INITIAL_INS_SIDE_CONFIGS);
+    elasticWrite(INS_TEMP_CONFIG_FILE_PATH, JSON.stringify(options));
+    return [INS_TEMP_CONFIG_FILE_PATH, INS_TEMP_CONFIG_FILE_NAME];
 }
 
 /**
@@ -403,7 +405,7 @@ function makeInsSideConfig(options = {}) {
  * @returns {String} 
  */
 function getInsSideKey() {
-    return initialInsSideConfigs['secret_key'];
+    return INITIAL_INS_SIDE_CONFIGS['secret_key'];
 }
 
 /**
@@ -414,7 +416,7 @@ function getInsSideKey() {
  */
 function connectInsSSH(ip = '') {
     let sshConn = new ssh2Client(), // 创建ssh客户端对象
-        keyFilePath = configs['loginKeyFile']; // 服务器登录密匙文件
+        keyFilePath = configs['loginKeyPath']; // 服务器登录密匙文件
     ip = ip ? ip : getInsDetail('instance_ip');
     if (!ip)
         return Promise.reject('No instance IP found.');
@@ -430,8 +432,8 @@ function connectInsSSH(ip = '') {
             port: 22,
             username: 'root',
             privateKey: fs.readFileSync(keyFilePath, 'utf8'),
-            readyTimeout: apiConfigs['ssh_ready_timeout'],
-            keepaliveInterval: apiConfigs['ssh_keep_alive_interval']
+            readyTimeout: API_CONFIGS['ssh_ready_timeout'],
+            keepaliveInterval: API_CONFIGS['ssh_keep_alive_interval']
         });
     }).catch(err => {
         // 善后处理
@@ -446,7 +448,7 @@ function connectInsSSH(ip = '') {
 function wsHeartBeat() {
     console.log('ping');
     // 获得最大等待时间
-    let maxWaitTime = apiConfigs['ins_side']['ws_ping_timeout'];
+    let maxWaitTime = API_CONFIGS['ins_side']['ws_ping_timeout'];
     clearTimeout(this.pingTimeout);
     this.pingTimeout = setTimeout(() => {
         this.terminate(); // 连接失效，强制销毁连接
@@ -468,7 +470,7 @@ function wsTimerClear() {
  */
 function buildInsSideReq(act, data = null) {
     let req = {
-        'key': initialInsSideConfigs['secret_key'],
+        'key': INITIAL_INS_SIDE_CONFIGS['secret_key'],
         'action': act,
         'data': data
     }
@@ -530,8 +532,8 @@ function createMultiDirs(absPath) {
  */
 function connectInsSide() {
     let remoteIp = getInsDetail('instance_ip'), // 获得实例IP
-        remotePort = apiConfigs['ins_side']['ws_port']; // 获得WebSocket端口
-    return ascFs.stat(insTempConfigPath).then(res => {
+        remotePort = API_CONFIGS['ins_side']['ws_port']; // 获得WebSocket端口
+    return ascFs.stat(INS_TEMP_CONFIG_FILE_PATH).then(res => {
         // 临时配置文件已经存在
         return Promise.resolve('done');
     }, rej => {
@@ -541,9 +543,9 @@ function connectInsSide() {
             .then(conn => {
                 return fastPutFiles(conn, [
                     [
-                        insTempConfigPath,
+                        INS_TEMP_CONFIG_FILE_PATH,
                         toPosixSep(
-                            path.join(remoteDir, insTempConfigName)
+                            path.join(REMOTE_DIR, INS_TEMP_CONFIG_FILE_NAME)
                         )
                     ]
                 ]);
@@ -563,7 +565,7 @@ function connectInsSide() {
         });
     }).then(ws => {
         // 连接上websocket后将本地的临时配置文件删除
-        return ascFs.rm(insTempConfigPath).then(res => {
+        return ascFs.rm(INS_TEMP_CONFIG_FILE_PATH).then(res => {
             console.log('Deleted local temp config file.');
             return Promise.resolve(ws);
         });
@@ -585,13 +587,13 @@ function toPosixSep(origin) {
  * @param {String} cmd 
  */
 function storeCommand(cmd) {
-    let previousCmd = jsons.scRead(mcTempCmdFilePath);
+    let previousCmd = jsons.scRead(MC_TEMP_CMD_FILE_PATH);
     if (!previousCmd) { // 文件尚未存在
         previousCmd = [];
     }
     previousCmd.push(cmd);
     try {
-        fs.writeFileSync(mcTempCmdFilePath, JSON.stringify(previousCmd), {
+        fs.writeFileSync(MC_TEMP_CMD_FILE_PATH, JSON.stringify(previousCmd), {
             encoding: 'utf-8'
         });
     } catch (e) {
@@ -604,11 +606,11 @@ function storeCommand(cmd) {
  * @returns {Array} 包含一组Minecraft指令的数组
  */
 function flushCommands() {
-    let commands = jsons.scRead(mcTempCmdFilePath);
+    let commands = jsons.scRead(MC_TEMP_CMD_FILE_PATH);
     if (!commands) { // 文件尚未存在
         commands = [];
     } else {
-        fs.rmSync(mcTempCmdFilePath);
+        fs.rmSync(MC_TEMP_CMD_FILE_PATH);
     }
     return commands;
 }

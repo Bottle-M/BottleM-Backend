@@ -21,22 +21,22 @@ function configReader(configName) {
 }
 
 // 读取API主配置
-const apiConfigs = configReader('api_configs');
+const API_CONFIGS = configReader('api_configs');
 
 // 读取用户token主配置
-const tokenConfigs = configReader('user_tokens');
+const TOKEN_CONFIGS = configReader('user_tokens');
 
 // 读取secret
-const secretConfigs = configReader('secret_configs');
+const SECRET_CONFIGS = configReader('secret_configs');
 
 // 读取状态码信息配置
-const statusConfigs = configReader('status_codes');
+const STATUS_CONFIGS = configReader('status_codes');
 
 // backend-status文件路径
-const backendStatusFile = path.join(__dirname, '../backend_status.json');
+const BACK_END_STATUS_FILE_PATH = path.join(__dirname, '../backend_status.json');
 
 // 最初的backend-status文件内容
-const initialBackendStatus = {
+const INITIAL_BACKEND_STATUS = {
     status_msg: 'Everything\'s Fine', // 状态信息
     status_code: 2000, // 状态代码
     last_err: '', // 上一次错误的信息
@@ -44,36 +44,36 @@ const initialBackendStatus = {
 };
 
 // 服务器临时文件存放目录
-const serverTemp = 'server_data';
+const SERVER_TEMP_DIR = 'server_data';
 
 // instance_details实例详细信息文件路径
-const insDetailsFile = path.join(__dirname, `../${serverTemp}/instance_details.json`);
+const INS_DETAILS_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/instance_details.json`);
 
 // launch.lock部署锁文件路径
-const launchLockFile = path.join(__dirname, `../${serverTemp}/launch.lock`);
+const LAUNCH_LOCK_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/launch.lock`);
 
 // 实例登入私匙文件路径
-const loginKeyFile = path.join(__dirname, `../${serverTemp}/login.pem`);
+const LOGIN_KEY_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/login.pem`);
 
 // 临时储存发送到Minecraft服务器指令的文件路径
-const mcTempCmdFile = path.join(__dirname, `../cmds_for_minecraft.json`);
+const MC_TEMP_CMD_FILE_PATH = path.join(__dirname, `../cmds_for_minecraft.json`);
 
 // 所有必要数据上传到实例中的哪里（绝对路径）
-const remoteDir = apiConfigs['ins_side']['remote_dir'];
+const REMOTE_DIR = API_CONFIGS['ins_side']['remote_dir'];
 
 module.exports = {
-    apiConfigs, // API主配置
-    tokenConfigs,
-    secretConfigs,
-    statusConfigs,
-    backendStatusFile,
-    initialBackendStatus,
-    serverTemp,
-    launchLockFile,
-    insDetailsFile,
-    loginKeyFile,
-    remoteDir,
-    mcTempCmdFile,
+    apiConfigs: API_CONFIGS, // API主配置
+    tokenConfigs: TOKEN_CONFIGS,
+    secretConfigs: SECRET_CONFIGS,
+    statusConfigs: STATUS_CONFIGS,
+    backendStatusPath: BACK_END_STATUS_FILE_PATH,
+    initialBackendStatus: INITIAL_BACKEND_STATUS,
+    serverTempDir: SERVER_TEMP_DIR,
+    launchLockPath: LAUNCH_LOCK_FILE_PATH,
+    insDetailsPath: INS_DETAILS_FILE_PATH,
+    loginKeyPath: LOGIN_KEY_FILE_PATH,
+    remoteDir: REMOTE_DIR,
+    mcTempCmdPath: MC_TEMP_CMD_FILE_PATH,
     sc: configReader,
     /**
      * 异步读取配置文件
