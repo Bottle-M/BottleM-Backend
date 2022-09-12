@@ -55,7 +55,7 @@ function router(recvObj, ws) {
                     let commands = utils.flushCommands(); // 冲洗本地缓存的命令
                     console.log('Flushed commands:', commands);
                     commands.forEach((command) => {
-                        send(utils.buildInsSideReq('command', {
+                        send(utils.buildWSReq('command', {
                             command: command
                         }));
                     });

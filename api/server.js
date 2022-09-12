@@ -18,10 +18,11 @@ const INS_DETAILS_FILE_PATH = configs['insDetailsPath'];
 // 所有Shell脚本所在目录
 const LOCAL_SCRIPTS_DIR = path.join(__dirname, '../scripts/');
 // 所有必要数据上传到实例中的哪里（绝对路径）
-const REMOTE_DIR = configs['remoteDir'];
+// 即实例部署的数据目录
+const INS_DATA_DIR = configs['insDataDir'];
 // 实例端部署脚本的绝对路径（务必写成绝对路径）
 const INS_DEPLOY_SCRIPT_PATH = utils.toPosixSep(
-    path.join(REMOTE_DIR, API_CONFIGS['instance_deploy_sh'])
+    path.join(INS_DATA_DIR, API_CONFIGS['instance_deploy_sh'])
 );
 
 class Server {
@@ -175,7 +176,7 @@ class Server {
             let [insTempConfigPath, insTempConfigName] = utils.makeInsSideConfig({
                 // 将部署配置(是否是维护模式,是否要恢复增量备份)写入实例端配置文件
                 'under_maintenance': this._maintain,
-                'restore_before_deploy': this._restore,
+                'restore_before_launch': this._restore,
                 'backup_records': utils.readBackupRecs() // 读取备份记录，如果没有会返回null
             });
             // 通过sftp传输部署脚本
@@ -184,18 +185,18 @@ class Server {
                 fileArr = fileArr.map((file) =>
                     [
                         path.join(LOCAL_SCRIPTS_DIR, file),
-                        path.join(REMOTE_DIR, file)
+                        path.join(INS_DATA_DIR, file)
                     ]
                 );
                 // 把实例端临时配置文件也加入传输队列
                 fileArr.push([
                     insTempConfigPath,
                     utils.toPosixSep(
-                        path.join(REMOTE_DIR, insTempConfigName)
+                        path.join(INS_DATA_DIR, insTempConfigName)
                     )
                 ]);
                 // 检查并创建remoteDir目录
-                return utils.createMultiDirs(REMOTE_DIR)
+                return utils.createMultiDirs(INS_DATA_DIR)
                     .then(success => {
                         return utils.fastPutFiles(sshConn, fileArr);
                     })
@@ -260,7 +261,7 @@ class Server {
             return new Promise((resolve) => {
                 outputer(1, 'WebSocket Connected.');
                 // 请求同步状态，实例端状态从2201开始
-                ws.send(utils.buildInsSideReq('status_sync'));
+                ws.send(utils.buildWSReq('status_sync'));
                 ws.on('message', (msg) => {
                     // 传来的数据不能为空
                     if (!(/^\s*$/.test(msg))) {
@@ -406,7 +407,7 @@ module.exports = {
         let statusCode = utils.getStatus('status_code') || 1000;
         if (statusCode >= 2300 && statusCode < 2400) {
             // 状态代码在[2300,2400)区间中，说明服务器已经启动
-            wsHandler.send(utils.buildInsSideReq('command', {
+            wsHandler.send(utils.buildWSReq('command', {
                 command: cmd
             }));
             resultObj.code = 0; // 0 代表交由异步处理
@@ -429,10 +430,10 @@ module.exports = {
         if (statusCode >= 2300 && statusCode < 2400) {
             // 状态代码在[2300,2400)区间中，说明服务器已经启动
             if (force) {
-                wsHandler.send(utils.buildInsSideReq('kill'));
+                wsHandler.send(utils.buildWSReq('kill'));
                 resultObj.msg = 'Killing the server...';
             } else {
-                wsHandler.send(utils.buildInsSideReq('stop'));
+                wsHandler.send(utils.buildWSReq('stop'));
                 resultObj.msg = 'Closing the server...';
             }
             resultObj.code = 0; // 0 代表交由异步处理

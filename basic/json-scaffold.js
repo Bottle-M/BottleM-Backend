@@ -69,7 +69,7 @@ function scSet(jPath, keys, values) {
     let parsed = scRead(jPath);
     if (parsed) {
         for (let i = 0, len = keys.length; i < len; i++) {
-            if (keys[i] && values[i])
+            if (keys[i] !== undefined && values[i] !== undefined)
                 parsed[keys[i]] = values[i];
         }
         try {

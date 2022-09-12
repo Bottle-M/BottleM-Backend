@@ -36,7 +36,7 @@ api_configs:
             【默认】9527
         - ws_ping_timeout 实例端websocket连接超时时间（单位：毫秒）
             【默认】30000
-        - remote_dir 实例端部署的脚本和基本配置文件的上传目标目录
+        - data_dir 实例端部署的脚本和基本配置文件的上传目标目录
             必须是绝对路径
             【默认】'/root/baseData'
         - deploy_scripts 部署Minecraft服务器的脚本文件名，会从remote_dir中读取，是一个数组，从头至尾执行
@@ -79,7 +79,11 @@ api_configs:
 
             - src_dirs 增量备份针对的目录，是一个数组
                 必须是绝对路径
-                【默认】['/root/minecraft/world']
+                【默认】[
+                    "/root/minecraft/world",
+                    "/root/minecraft/world_nether",
+                    "/root/minecraft/world_the_end"
+                ]
 
         - server_ending_scripts 服务器关闭后的脚本
 
@@ -174,3 +178,5 @@ check_packed_server_size为0时，服务器不会自动删除压缩包，需要�
 RCON端口一定不要在安全组中开放！仅在本地使用！不然是不安全的
 
 如果没有开启增量备份，实例被强制回收时不会进入紧急模式。
+
+为了防止每次记录日志时都要扫描整个日志目录，专门有一个.lognum文件记录日志情况，要删除日志就要一起删掉

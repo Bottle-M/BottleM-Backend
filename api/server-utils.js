@@ -30,7 +30,7 @@ const MC_SERVER_INFO_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/mc_
 const BACKUP_RECORD_FILE_NAME = 'backup_record.json';
 const BACKUP_RECORD_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/${BACKUP_RECORD_FILE_NAME}`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
-const REMOTE_DIR = configs['remoteDir'];
+const INS_DATA_DIR = configs['insDataDir'];
 
 // 检查backend_status状态记录文件是否存在
 try {
@@ -71,7 +71,9 @@ function readBackupRecs() {
 function recordBackup(dataObj, revokeAll = false) {
     try {
         if (revokeAll) {
-            fs.rmSync(BACKUP_RECORD_FILE_PATH);
+            fs.rmSync(BACKUP_RECORD_FILE_PATH, {
+                force: true // 即使文件不存在，也不要报错
+            });
         } else {
             let records = jsons.scRead(BACKUP_RECORD_FILE_PATH) || [];
             records.push(dataObj);
@@ -203,7 +205,7 @@ function getInsDetail(key = '') {
 
 /**
  * （同步）删除文件，不会抛出错误
- * @param {*} filePath 文件路径
+ * @param {String} filePath 文件路径
  */
 function safeDel(filePath) {
     try {
@@ -216,6 +218,7 @@ function safeDel(filePath) {
 /**
  * （同步）清空实例临时文件
  * @returns 布尔值true/false 代表 是/否 成功
+ * @note 不会清除增量备份记录文件，丢弃增量备份记录文件需要用recordBackup(null,true)
  */
 function clearServerTemp() {
     try {
@@ -362,21 +365,19 @@ function setMCInfo(keys, values) {
     try {
         fs.statSync(MC_SERVER_INFO_FILE_PATH); // 检查文件是否存在
     } catch (e) {
-        elasticWrite(MC_SERVER_INFO_FILE_PATH, JSON.stringify({
-            'players_online': 0
-        })); // 创建文件
+        elasticWrite(MC_SERVER_INFO_FILE_PATH, '{}'); // 创建文件
     }
     jsons.scSet(MC_SERVER_INFO_FILE_PATH, keys, values);
 }
 
 /**
  * 获得Minecraft服务器的相关信息
- * @param {String} key 获取的值对应的键名
- * @returns 对应的信息值
+ * @param {String|null} key 获取的值对应的键名
+ * @returns 对应的信息值，如果没有会返回null
  */
 function getMCInfo(key) {
     let infoObj = jsons.scRead(MC_SERVER_INFO_FILE_PATH); // 读取包含服务器信息的对象
-    return infoObj[key];
+    return infoObj[key] || null;
 }
 
 
@@ -390,7 +391,7 @@ function makeInsSideConfig(options = {}) {
     INITIAL_INS_SIDE_CONFIGS['secret_key'] = randStr(128);
     // 实例端状态码配置
     INITIAL_INS_SIDE_CONFIGS['env'] = Object.assign({
-        'DATA_DIR': REMOTE_DIR, // 实例端数据目录
+        'DATA_DIR': INS_DATA_DIR, // 实例端数据目录
         'PACK_DIR': INITIAL_INS_SIDE_CONFIGS['packed_server_dir'], // 服务端打包后的目录
         'FRAGMENTS_DIR': INITIAL_INS_SIDE_CONFIGS['backup_fragments_dir'], // 增量备份碎片目录
         'MC_DIR': INITIAL_INS_SIDE_CONFIGS['mc_server_dir'] // Minecraft服务端目录
@@ -467,8 +468,9 @@ function wsTimerClear() {
  * @param {String} act 操作
  * @param {Object} data 传输的数据（默认为null
  * @returns {String} 返回JSON字符串
+ * @note 之所以要写个方法，是因为主控端向实例端发送数据一定要带上密匙
  */
-function buildInsSideReq(act, data = null) {
+function buildWSReq(act, data = null) {
     let req = {
         'key': INITIAL_INS_SIDE_CONFIGS['secret_key'],
         'action': act,
@@ -545,7 +547,7 @@ function connectInsSide() {
                     [
                         INS_TEMP_CONFIG_FILE_PATH,
                         toPosixSep(
-                            path.join(REMOTE_DIR, INS_TEMP_CONFIG_FILE_NAME)
+                            path.join(INS_DATA_DIR, INS_TEMP_CONFIG_FILE_NAME)
                         )
                     ]
                 ]);
@@ -635,7 +637,7 @@ module.exports = {
     connectInsSide,
     wsHeartBeat,
     wsTimerClear,
-    buildInsSideReq,
+    buildWSReq,
     createMultiDirs,
     setMCInfo,
     getMCInfo,

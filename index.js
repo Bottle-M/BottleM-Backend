@@ -3,9 +3,9 @@ const httpServer = require('http');
 const outputer = require('./basic/output');
 const router = require('./api/http-router');
 const auther = require('./basic/token-auth');
-const API_CONFIGS = require('./basic/config-box')['apiConfigs'];
+// 获得api服务开放端口
+const HTTP_API_PORT = require('./basic/config-box')['apiConfigs']['api_port'];
 
-let port = API_CONFIGS['api_port']; // 获取配置的端口号
 httpServer.createServer(function (req, res) {
     let reqUrl = new URL(req.url, 'http://localhost'), // 构建一个URL对象
         reqPath = reqUrl.pathname, // 获得请求路径
@@ -56,7 +56,7 @@ httpServer.createServer(function (req, res) {
         delete resultObj['status']; // 移除status字段
         res.end(JSON.stringify(resultObj));
     });
-}).listen(port, () => {
+}).listen(HTTP_API_PORT, () => {
     // 监听指定端口
     outputer(1, 'HTTP API Launched successfully.');
 });

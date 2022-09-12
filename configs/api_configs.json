@@ -34,7 +34,7 @@
     "ins_side": {
         "ws_port": 9527,
         "ws_ping_timeout": 20000,
-        "remote_dir": "/root/baseData",
+        "data_dir": "/root/baseData",
         "deploy_scripts": [
             "setup_cos.sh",
             "get_server.sh"
@@ -54,7 +54,9 @@
                 "discard": "incre_discard.sh"
             },
             "src_dirs": [
-                "/root/minecraft/world"
+                "/root/minecraft/world",
+                "/root/minecraft/world_nether",
+                "/root/minecraft/world_the_end"
             ]
         },
         "server_ending_scripts": {

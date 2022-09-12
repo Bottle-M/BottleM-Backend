@@ -59,7 +59,7 @@ const LOGIN_KEY_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/login.pe
 const MC_TEMP_CMD_FILE_PATH = path.join(__dirname, `../cmds_for_minecraft.json`);
 
 // 所有必要数据上传到实例中的哪里（绝对路径）
-const REMOTE_DIR = API_CONFIGS['ins_side']['remote_dir'];
+const DATA_DIR = API_CONFIGS['ins_side']['data_dir'];
 
 module.exports = {
     apiConfigs: API_CONFIGS, // API主配置
@@ -72,7 +72,7 @@ module.exports = {
     launchLockPath: LAUNCH_LOCK_FILE_PATH,
     insDetailsPath: INS_DETAILS_FILE_PATH,
     loginKeyPath: LOGIN_KEY_FILE_PATH,
-    remoteDir: REMOTE_DIR,
+    insDataDir: DATA_DIR,
     mcTempCmdPath: MC_TEMP_CMD_FILE_PATH,
     sc: configReader,
     /**

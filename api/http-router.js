@@ -62,7 +62,7 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
                     break outer;
                 case 'discardbackup': // 抛弃增量备份
                     {
-                        server.launch(underMaintenance, 'discard', resultObj);
+                        server.launch(false, 'discard', resultObj);
                     }
                     break outer;
                 default:

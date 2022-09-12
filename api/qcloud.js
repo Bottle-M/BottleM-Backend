@@ -147,7 +147,7 @@ function describeKey(keyId) {
 
 /**
  * 删除实例登录密匙对
- * @param {*} keyId 密匙对ID
+ * @param {String} keyId 密匙对ID
  * @returns {Promise} 返回Promise对象
  */
 function deleteKey(keyId) {
