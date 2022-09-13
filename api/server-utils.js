@@ -16,7 +16,8 @@ const {
     insDetailsPath: INS_DETAILS_FILE_PATH,
     launchLockPath: LOCK_FILE_PATH,
     mcTempCmdPath: MC_TEMP_CMD_FILE_PATH,
-    serverTempDir: SERVER_TEMP_DIR
+    serverTempDir: SERVER_TEMP_DIR,
+    loginKeyPath: LOGIN_KEY_FILE_PATH
 } = configs;
 // 实例端最初配置对象
 const INITIAL_INS_SIDE_CONFIGS = API_CONFIGS['ins_side'];
@@ -402,11 +403,16 @@ function makeInsSideConfig(options = {}) {
 }
 
 /**
- * 获得目前连接实例端WebSocket的密匙
- * @returns {String} 
+ * （同步）获得用于连接SSH的密匙
+ * @returns {String} 密匙字符串
+ * @note 如果没有密匙，会返回空字符串
  */
-function getInsSideKey() {
-    return INITIAL_INS_SIDE_CONFIGS['secret_key'];
+function getSSHPrivateKey() {
+    try {
+        return fs.readFileSync(LOGIN_KEY_FILE_PATH, 'utf8');
+    } catch (e) {
+        return '';
+    }
 }
 
 /**
@@ -416,8 +422,7 @@ function getInsSideKey() {
  * @note 如果省略ip，则会尝试获取servertemp中实例的IP
  */
 function connectInsSSH(ip = '') {
-    let sshConn = new ssh2Client(), // 创建ssh客户端对象
-        keyFilePath = configs['loginKeyPath']; // 服务器登录密匙文件
+    let sshConn = new ssh2Client(); // 创建ssh客户端对象
     ip = ip ? ip : getInsDetail('instance_ip');
     if (!ip)
         return Promise.reject('No instance IP found.');
@@ -432,7 +437,7 @@ function connectInsSSH(ip = '') {
             host: ip,
             port: 22,
             username: 'root',
-            privateKey: fs.readFileSync(keyFilePath, 'utf8'),
+            privateKey: getSSHPrivateKey(),
             readyTimeout: API_CONFIGS['ssh_ready_timeout'],
             keepaliveInterval: API_CONFIGS['ssh_keep_alive_interval']
         });
@@ -632,7 +637,7 @@ module.exports = {
     fastPutFiles,
     toPosixSep,
     makeInsSideConfig,
-    getInsSideKey,
+    getSSHPrivateKey,
     connectInsSSH,
     connectInsSide,
     wsHeartBeat,

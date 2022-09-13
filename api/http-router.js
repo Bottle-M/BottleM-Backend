@@ -50,20 +50,32 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
             break;
         case 'maintenance': // /server/maintenance
             switch (action) {
-                case 'pem':
+                case 'get_key':
+                    {
+                        let key = utils.getSSHPrivateKey();
+                        if (key) {
+                            resultObj.code = 1;
+                            resultObj.msg = 'Please take care of it.';
+                            resultObj.data['privateKey'] = key;
+                        } else {
+                            // 还没有密匙
+                            resultObj.msg = 'Private key not found.';
+                        }
+                    }
                     break outer; // 直接跳出外层
                 case 'revive':
+                    server.revive(resultObj); // 清除当前错误，尝试恢复正常
+                    break outer;
+                case 'wipe_butt':
+                    server.wipeButt(); // 退还所有资源
+                    resultObj.msg = 'Resources were terminated.';
+                    resultObj.code = 0;
                     break outer;
                 case 'stop':
                     server.stop(false, resultObj); // 发送关服指令 
                     break outer;
                 case 'kill':
                     server.stop(true, resultObj); // 发送杀死指令 
-                    break outer;
-                case 'discardbackup': // 抛弃增量备份
-                    {
-                        server.launch(false, 'discard', resultObj);
-                    }
                     break outer;
                 default:
                     underMaintenance = true; // 维护模式
@@ -74,8 +86,11 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
                 case 'launch': // 开始部署服务器
                     server.launch(underMaintenance, false, resultObj);
                     break outer;
-                case 'restorelaunch': // 开始恢复增量备份，并部署服务器
+                case 'restore_and_launch': // 开始恢复增量备份，并部署服务器
                     server.launch(underMaintenance, true, resultObj);
+                    break outer;
+                case 'launch_and_discard_backup': // 抛弃增量备份
+                    server.launch(underMaintenance, 'discard', resultObj);
                     break outer;
                 default:
                     resultObj.msg = 'Lack of Valid Action';

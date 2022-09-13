@@ -1,18 +1,22 @@
 /server/normal 正常节点
-    - /launch 开启
-    - /restorelaunch 恢复增量备份并启动(如果没有,则就是正常启动)
+    - /launch 开启 √
+    - /restore_and_launch 恢复增量备份并启动(如果没有,则就是正常启动) √
+    - /launch_and_discard_backup 丢弃残留的增量备份(如果没有,则就是正常启动) √
 
 /server/maintenance 维护节点（部署后不会监控Minecraft服务器）
-    - /launch 开启
-    - /stop 关闭（软），会等待Minecraft服务器进程正常结束后打包服务器
-    - /kill 关闭（硬）
-    - /pem 获得本次服务器登入私匙
-    - /revive 清除当前错误，继续运行
-    - /restorelaunch 恢复增量备份并启动(如果没有,则就是正常启动)
-    - /discardbackup 丢弃残留的增量备份
+    - /launch 开启 √ 
+    - /stop 关闭（软），会等待Minecraft服务器进程正常结束后打包服务器 √
+    - /kill 关闭（硬） √
+    - /get_key 获得本次服务器登入私匙 √
+        - 返回数据在data对象中的privateKey字段中
+    - /revive 清除当前错误，继续运行(仅用于少数偶发性错误)，仅在发生错误时可用 
+    - /wipe_butt 无法revive的情况下，直接退还资源(擦屁股)（调用的cleanDeploy）
+        【警告】本操作无法撤销，只能在无法revive的情况下调用。
+    - /restore_and_launch 恢复增量备份并启动(如果没有,则就是正常启动) √
+    - /launch_and_discard_backup 丢弃残留的增量备份(如果没有,则就是正常启动) √
 
 /server/command 命令节点
-    - /send 发送命令
+    - /send 发送命令 √
         - 方式：POST，表单字段包含 command - 命令内容
 
 /server/logs 服务器日志查看节点
@@ -23,8 +27,8 @@
     - /backend 查询后端服务状态
 
 /backend/statistics 统计节点
-    - /cost 查询服务器费用
-    - /launch 启动情况
+    - /costs 查询服务器费用
+    - /launches 启动情况
 
 /backend/token 临时api请求token生成的节点
     - /generate 生成游客访问token

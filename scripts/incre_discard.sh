@@ -11,5 +11,5 @@
 
 
 # 不过coscli在上传文件时能自动创建目录，所以我们可以简单粗暴一点：
-# 如果incremental不存在，可能会报错，不过实例端在没有增量备份的情况下应该不会discardBackup
+# 如果incremental目录不存在，可能会报错，不过实例端在没有增量备份的情况下不会discardBackup
 ./coscli rm "cos://minecraft/incremental" -r -f

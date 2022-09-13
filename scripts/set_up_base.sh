@@ -11,6 +11,8 @@ fi
 
 cd BottleM-InsSide
 
+exit 1;
+
 npm install > /dev/null 2>&1
 
 # 使用--data或-d选项指定数据目录，Backend会往这个目录中传输文件

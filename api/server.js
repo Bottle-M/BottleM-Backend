@@ -12,7 +12,7 @@ const API_CONFIGS = configs['apiConfigs'];
 // launch.lock这个文件存在则代表服务器已经部署
 const LOCK_FILE_PATH = configs['launchLockPath'];
 // login.pem，服务器登录密匙文件
-const KEY_FILE_PATH = configs['loginKeyPath'];
+const LOGIN_KEY_FILE_PATH = configs['loginKeyPath'];
 // instance_details实例详细信息文件路径
 const INS_DETAILS_FILE_PATH = configs['insDetailsPath'];
 // 所有Shell脚本所在目录
@@ -36,11 +36,10 @@ class Server {
      * @note 这是第一个环节
      */
     compareAndRun() {
-        let statusCode = utils.getStatus('status_code');
         // 这里用于resume，在进程重启后能恢复到上回的进度
-        if (statusCode > 2000) { // 上次意外终止时状态并不是Idling或者出现错误
+        if (this._initialStatusCode > 2000) { // 上次意外终止时状态并不是Idling或者出现错误
             let insId = utils.getInsDetail('instance_id');
-            if (statusCode >= 2100) { // 上次终止时进入了下一阶段，直接resolve
+            if (this._initialStatusCode >= 2100) { // 上次终止时进入了下一阶段，直接resolve
                 return insId ? Promise.resolve(insId) : Promise.reject('No instance ID found, unable to resume');
             } else { // 上次终止时仍然在进行创建密匙对/实例工作
                 return this.cleanDeploy().then(res => {
@@ -80,7 +79,7 @@ class Server {
             return cloud.generateKey().then(keyObj => {
                 let keyId = keyObj['keyId'];
                 // 写入密钥文件
-                return ascFs.writeFile(KEY_FILE_PATH, keyObj['privateKey'], {
+                return ascFs.writeFile(LOGIN_KEY_FILE_PATH, keyObj['privateKey'], {
                     encoding: 'utf8'
                 }).then(res => {
                     let detailedData = {
@@ -114,13 +113,12 @@ class Server {
      * @note 这是第二个环节
      */
     setUpBase(insId) {
-        let statusCode = utils.getStatus('status_code'),
-            timer = null,
+        let timer = null,
             alreadyWaitFor = 0, // 已经等待了多久（毫秒）
             queryInterval = 5000, // 每5秒查询一次
             sshConn = null; // 保存ssh连接
         // 此部分用于resume
-        if (statusCode >= 2200) {
+        if (this._initialStatusCode >= 2200) {
             // 如果状态码大于等于2200，说明已经进入第三阶段
             return Promise.resolve('done');
         }
@@ -371,6 +369,8 @@ class Server {
         // 更新选项
         this._maintain = maintain;
         this._restore = restore;
+        // 获得执行entry时的statusCode，用以resume
+        this._initialStatusCode = utils.getStatus('status_code');
         this.compareAndRun() // 交由异步函数处理
             .then(insId => that.setUpBase(insId)) // 开始在实例上建设“基地”
             .then(res => that.insSideMonitor())
@@ -395,6 +395,33 @@ class Server {
 const ServerDeploy = new Server();
 
 module.exports = {
+    /**
+     * 尝试清除当前错误状态，恢复正常（有可能失败）
+     * @param {Object} resultObj 返回给路由的数据对象
+     * @returns {Object} 装有返回数据的对象
+     * @note 这个方法主要用于偶发性错误
+     */
+    revive: function (resultObj) {
+        // 检查状态文件，取不到文件默认1000
+        let statusCode = utils.getStatus('status_code'),
+            that = this;
+        // 状态码<2000，说明出现了错误，可以尝试revive  
+        if (statusCode && statusCode < 2000) {
+            wsHandler.send(utils.buildWSReq('revive')); // 向实例端发送revive信号
+            // 加上1000就是原来的状态码
+            utils.setStatus(statusCode + 1000)
+                .then(res => {
+                    that.resume(); // 尝试恢复
+                }).catch(err => {
+                    console.log(`Failed to revive due to status set error:${err}`);
+                })
+            resultObj.msg = 'Reviving...';
+            resultObj.code = 0; // 0 代表交由异步处理
+        } else {
+            resultObj.msg = 'There\'s no need to revive.';
+        }
+        return resultObj;
+    },
     /**
      * 在Minecraft服务器内执行命令
      * @param {String} cmd 要执行的命令
@@ -463,7 +490,7 @@ module.exports = {
             } catch (e) {
                 if (utils.backupExists() && !restore) {
                     // 存在增量备份，这说明上次实例端没有正常退出
-                    resultObj.msg = 'Urgent backup exists, please use action: restorelaunch';
+                    resultObj.msg = 'Urgent backup exists, please use action: restore_and_launch';
                 } else {
                     // 创建launch.lock文件
                     utils.elasticWrite(LOCK_FILE_PATH, `Launched at ${new Date().toISOString()}`);
@@ -474,6 +501,17 @@ module.exports = {
             }
         }
         return resultObj;
+    },
+    /**
+     * 在revive都没办法的情况下，可以利用wipe_butt直接退还实例等资源(擦屁股方法)
+     */
+    wipeButt: () => {
+        ServerDeploy.cleanDeploy()
+            .then(res => {
+                utils.setStatus(2000); // 恢复到初始状态
+            }).catch(err => {
+                utils.errorHandler(`Failed to terminate resources:${err}`);
+            })
     },
     /**
      * 进程意外重启之后依靠resume函数重新进入流程
