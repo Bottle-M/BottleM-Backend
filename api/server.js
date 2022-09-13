@@ -29,6 +29,7 @@ class Server {
     constructor() {
         this._maintain = false; // 默认不是维护模式
         this._restore = false; // 默认不对增量备份(如果有的话)进行任何操作
+        this._cleaningUp = false; // 是否正在清理(防止cleanDeploy重复执行)
     }
     /**
      * 比价，然后创建实例
@@ -318,9 +319,13 @@ class Server {
      * @note 这是最后一个环节
      */
     cleanDeploy() {
+        if (this._cleaningUp)
+            return Promise.resolve('Already cleaning!');
+        this._cleaningUp = true; // 标记正在清理中
         let details = utils.getInsDetail() || [],
             keyId = details['instance_key_id'],
-            insId = details['instance_id'];
+            insId = details['instance_id'],
+            that = this;
         outputer(1, 'Cleaning the remains of the deployment.');
         let cleanTasks = []; // 清理任务Promises
         // 如果密匙对已经创建，就销毁密匙对
@@ -357,6 +362,8 @@ class Server {
             return Promise.resolve('Cleanup Done.');
         }).catch(err => {
             return Promise.reject(`Failed to clean remains: ${err}`);
+        }).finally(() => {
+            that._cleaningUp = false; // 标记不在清理中
         });
     }
     /**

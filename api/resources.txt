@@ -10,7 +10,7 @@
     - /get_key 获得本次服务器登入私匙 √
         - 返回数据在data对象中的privateKey字段中
     - /revive 清除当前错误，继续运行(仅用于少数偶发性错误)，仅在发生错误时可用 
-    - /wipe_butt 无法revive的情况下，直接退还资源(擦屁股)（调用的cleanDeploy）
+    - /wipe_butt 无法revive的情况下，直接退还资源(擦屁股)（调用的cleanDeploy）√
         【警告】本操作无法撤销，只能在无法revive的情况下调用。
     - /restore_and_launch 恢复增量备份并启动(如果没有,则就是正常启动) √
     - /launch_and_discard_backup 丢弃残留的增量备份(如果没有,则就是正常启动) √
