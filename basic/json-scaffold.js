@@ -66,19 +66,20 @@ function ascSet(jPath, keys, values) {
 function scSet(jPath, keys, values) {
     if (!(keys instanceof Array)) keys = [keys];
     if (!(values instanceof Array)) values = [values];
-    let parsed = scRead(jPath);
-    if (parsed) {
-        for (let i = 0, len = keys.length; i < len; i++) {
-            if (keys[i] !== undefined && values[i] !== undefined)
-                parsed[keys[i]] = values[i];
-        }
-        try {
+    try {
+        let parsed = scRead(jPath);
+        if (parsed) {
+            for (let i = 0, len = keys.length; i < len; i++) {
+                if (keys[i] !== undefined && values[i] !== undefined)
+                    parsed[keys[i]] = values[i];
+            }
             writeFileSync(jPath, JSON.stringify(parsed));
             return true;
-        } catch (e) {
+        } else {
             return false;
         }
-    } else {
+    } catch (e) {
+        console.log(`Failed to set JSON file: ${jPath}, error: ${e}`);
         return false;
     }
 }

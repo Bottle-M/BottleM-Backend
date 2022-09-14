@@ -71,10 +71,8 @@ class Server {
             });
             if (insConfigs.length <= 0) {
                 // 如果没有可用实例，设置状态码为2000，触发错误1000
-                return utils.setStatus(2000).then(res => {
-                    // 没有可用的实例
-                    return Promise.reject('No available instance (that meet the specified configuration)');
-                }); // 同样是rejected留给外面处理
+                utils.setStatus(2000);
+                return Promise.reject('No available instance (that meet the specified configuration)');
             }
             return Promise.resolve(insConfigs);
             // rejected留给外面处理
@@ -443,13 +441,10 @@ module.exports = {
             if (errFrom === 'insside') // 是来自实例端的错误, 对症下药
                 wsHandler.send(utils.buildWSReq('revive')); // 向实例端发送revive信号
             // 加上1000就是原来的状态码
-            utils.setStatus(statusCode + 1000)
-                .then(res => {
-                    if (errFrom === 'backend') // 是来自主控端的错误
-                        that.resume(); // 尝试恢复
-                }).catch(err => {
-                    console.log(`Failed to revive due to status set error:${err}`);
-                })
+            utils.setStatus(statusCode + 1000);
+            // 如果是来自主控端的错误
+            if (errFrom === 'backend')
+                that.resume(); // 尝试恢复
             resultObj.msg = 'Reviving...';
             resultObj.code = 0; // 0 代表交由异步处理
         } else {

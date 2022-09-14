@@ -88,25 +88,20 @@ function recordBackup(dataObj, revokeAll = false) {
 }
 
 /**
- * （异步）设置backend_status状态文件
+ * （同步）设置backend_status状态文件
  * @param {String|Array} keys 设置的键（可以是键组成的数组）
  * @param {String|Array} values 设置的内容（可以是内容组成的数组）
- * @returns {Promise}
+ * @returns {Boolean} 是否成功
  */
 function updateBackendStatus(keys, values) {
-    return jsons.ascSet(BACKEND_STATUS_FILE_PATH, keys, values).catch(err => {
-        // 设置状态失败，写入日志
-        let errMsg = 'Failed to set status: ' + err;
-        outputer(2, errMsg);
-        return Promise.reject(errMsg);
-    });
+    return jsons.scSet(BACKEND_STATUS_FILE_PATH, keys, values);
 }
 
 
 /**
- * （异步）根据状态代号设置状态信息
+ * （同步）根据状态代号设置状态信息
  * @param {Number} code 
- * @returns {Promise}
+ * @returns {Boolean} 是否成功
  */
 function setStatus(code) {
     // 获得对应状态码的配置
