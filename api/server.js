@@ -101,10 +101,8 @@ class Server {
             let [insConfigs, keyId] = configsAndKey;
             return cloud.createInstance(insConfigs, keyId)
                 .then(insId => {
-                    return utils.setInsDetail('instance_id', insId)
-                        .then(res => {
-                            return Promise.resolve(insId); // 将实例ID传入下一个环节
-                        });
+                    utils.setInsDetail('instance_id', insId)
+                    return Promise.resolve(insId); // 将实例ID传入下一个环节
                 });
         });
     }
@@ -138,10 +136,8 @@ class Server {
                             return Promise.reject('No public ip address');
                         }
                         // 将公网IP写入instance_details
-                        return utils.setInsDetail('instance_ip', pubIp)
-                            .then(success => {
-                                return Promise.resolve(pubIp);
-                            });
+                        utils.setInsDetail('instance_ip', pubIp)
+                        return Promise.resolve(pubIp);
                     } else {
                         return Promise.resolve('');
                     }

@@ -113,18 +113,13 @@ function setStatus(code) {
 }
 
 /**
- * （异步）设置InstanceDetail文件
+ * （同步）设置InstanceDetail文件
  * @param {String|Array} keys 设置的键（可以是键组成的数组）
  * @param {String|Array} values 设置的内容（可以是内容组成的数组）
- * @returns {Promise}
+ * @returns {Boolean} 是否成功
  */
 function setInsDetail(keys, values) {
-    return jsons.ascSet(INS_DETAILS_FILE_PATH, keys, values).catch(err => {
-        // 设置状态失败，写入日志
-        let errMsg = 'Failed to set Instance Detail: ' + err;
-        outputer(2, errMsg);
-        return Promise.reject(errMsg);
-    });
+    return jsons.scSet(INS_DETAILS_FILE_PATH, keys, values);
 }
 
 /**

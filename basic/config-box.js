@@ -3,6 +3,8 @@
 const chalk = require('chalk');
 const path = require('path');
 const jsons = require('./json-scaffold');
+// 配置文件所在目录
+const CONFIG_DIR = path.join(__dirname, '..', './configs');
 
 /**
  * 同步读取配置文件
@@ -10,7 +12,9 @@ const jsons = require('./json-scaffold');
  * @returns 返回配置文件内容
  */
 function configReader(configName) {
-    let configFile = jsons.scRead(`./configs/${configName}`);
+    let configFile = jsons.scRead(
+        path.join(CONFIG_DIR, `${configName}.json`)
+    );
     if (!configFile) {
         // 这里输出错误警告要单独写
         console.log(chalk.red(`[ERROR] Config file: ${configName}.json read failed!`));
@@ -82,7 +86,9 @@ module.exports = {
      * @returns {Promise} Promise对象
      */
     asc: async function (configName) {
-        return jsons.scRead(`./configs/${configName}`).then(apiConfig => {
+        return jsons.ascRead(
+            path.join(CONFIG_DIR, `${configName}.json`)
+        ).then(apiConfig => {
             return Promise.resolve(apiConfig); // 返回解析的数据
         }, rejected => {
             // 这里输出错误警告要单独写
