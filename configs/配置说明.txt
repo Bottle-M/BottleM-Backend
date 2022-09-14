@@ -153,7 +153,7 @@ status_codes:
         - 仅限discard脚本：
             BACKUP_NAME_LIST - 提供的备份文件名列表，不包括扩展名，形如file1.txt file2.txt file3.txt
 
-
+警告！不要使用默认项目！为Minecraft服务器单独开一个项目！
 
 腾讯云API需要的权限：
 CVM查询创建退回,密匙创建/销毁相关,COS访问

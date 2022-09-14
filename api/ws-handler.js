@@ -70,7 +70,8 @@ function router(recvObj, ws) {
                 if (!error) {
                     outputer(level, msg, true, time); // 输出日志
                 } else {
-                    utils.errorHandler(msg, time); // 发生错误，转到错误处理函数
+                    // 实例端发生错误，转到错误处理函数
+                    utils.errorHandler(msg, 'insside', time);
                 }
             }
             break;

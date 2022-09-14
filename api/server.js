@@ -1,5 +1,6 @@
 // 服务器相关API
 'use strict';
+const { EventEmitter } = require('events');
 const fs = require('fs');
 const ascFs = fs.promises;
 const path = require('path');
@@ -8,6 +9,7 @@ const outputer = require('../basic/output');
 const utils = require('./server-utils');
 const wsHandler = require('./ws-handler');
 const configs = require('../basic/config-box');
+const serverEvents = new EventEmitter();
 const API_CONFIGS = configs['apiConfigs'];
 // launch.lock这个文件存在则代表服务器已经部署
 const LOCK_FILE_PATH = configs['launchLockPath'];
@@ -43,9 +45,10 @@ class Server {
             if (this._initialStatusCode >= 2100) { // 上次终止时进入了下一阶段，直接resolve
                 return insId ? Promise.resolve(insId) : Promise.reject('No instance ID found, unable to resume');
             } else { // 上次终止时仍然在进行创建密匙对/实例工作
-                return this.cleanDeploy().then(res => {
-                    // 恢复状态为idling
-                    utils.setStatus(2000);
+                return this.cleanDeploy().then(success => {
+                    if (success)
+                        // cleanDeploy成功的情况下恢复状态为idling
+                        utils.setStatus(2000);
                     // resume部分为达到中止Promise链的效果，需要reject null
                     // null是不作处理的
                     return Promise.reject(null);
@@ -257,8 +260,20 @@ class Server {
             0
         ]); // 创建Minecraft服务器信息文件
         return utils.connectInsSide().then((ws) => {
-            return new Promise((resolve) => {
+            return new Promise((resolve, reject) => {
+                let cleanWS = (ws) => {
+                    utils.wsTimerClear.call(ws); // 清空心跳监听计时器
+                    wsHandler.revokeWS(); // 设置主连接为null
+                    ws.terminate(); // 中止连接
+                }; // 清理WebSocket残留的函数，在断开连接后使用
+
                 outputer(1, 'WebSocket Connected.');
+                // 擦屁股(释放实例等资源)时，要退出monitor
+                serverEvents.once('stopmonitor', () => {
+                    console.log('Monitor stopped.');
+                    cleanWS(ws);
+                    reject(null); // reject一个null，不会触发errorHandler
+                });
                 // 请求同步状态，实例端状态从2201开始
                 ws.send(utils.buildWSReq('status_sync'));
                 ws.on('message', (msg) => {
@@ -270,10 +285,8 @@ class Server {
                 })
                     .on('ping', utils.wsHeartBeat.bind(ws)) // 心跳监听
                     .on('close', (code, reason) => { // 断开连接
-                        utils.wsTimerClear.call(ws); // 清空心跳监听计时器
                         outputer(1, `WebSocket Connection Closed: ${code}, Reason:${reason}`);
-                        wsHandler.revokeWS(); // 设置主连接为null
-                        ws.terminate(); // 中止连接
+                        cleanWS(ws); // 清理工作
                         if (code == 1001)
                             resolve(false); // 正常关闭，不再重连
                         else
@@ -282,7 +295,10 @@ class Server {
                     .on('error', (err) => {
                         outputer(3, `WebSocket Error: ${err}`);
                     });
-            });
+            }).finally(() => {
+                // 移除所有擦屁股事件监听器
+                serverEvents.removeAllListeners('stopmonitor');
+            })
         }).then(reconnect => {
             if (reconnect) {
                 // 普通的连接中断，(3秒后)尝试重连一下
@@ -297,6 +313,10 @@ class Server {
                 return Promise.resolve('InsSide passed away, see you!');
             }
         }).catch(err => {
+            // 如果是擦屁股，会reject一个null，不会触发errorHandler，这里也直接reject，不进行重试
+            if (!err) {
+                return Promise.reject(err);
+            }
             // 无法连接到实例端，说明实例端死亡了
             // 退出monitor
             const maxRetry = API_CONFIGS['instance_connect_retry'];
@@ -315,12 +335,14 @@ class Server {
     }
     /**
      * 一次流程走完，清理这次部署的残余内容
-     * @return {Promise}
+     * @return {Promise} resolve一个Bool，代表是否成功
+     * @note 不成功的情况往往是已经正在cleanDeploy
+     * @note 发生重大错误时仍然会reject
      * @note 这是最后一个环节
      */
     cleanDeploy() {
         if (this._cleaningUp)
-            return Promise.resolve('Already cleaning!');
+            return Promise.resolve(false);
         this._cleaningUp = true; // 标记正在清理中
         let details = utils.getInsDetail() || [],
             keyId = details['instance_key_id'],
@@ -359,7 +381,7 @@ class Server {
         return Promise.all(cleanTasks).then(res => {
             // 删除实例临时文件
             utils.clearServerTemp();
-            return Promise.resolve('Cleanup Done.');
+            return Promise.resolve(true);
         }).catch(err => {
             return Promise.reject(`Failed to clean remains: ${err}`);
         }).finally(() => {
@@ -385,7 +407,8 @@ class Server {
                 utils.setStatus(2500);
                 return that.cleanDeploy();
             })
-            .then(res => {
+            .then(success => {
+                // 这个地方流程进行完了，cleanDeploy成不成功都不影响流程，所以不需要判断，直接设置状态码为2000
                 // 恢复状态为idling
                 utils.setStatus(2000);
             })
@@ -410,15 +433,20 @@ module.exports = {
      */
     revive: function (resultObj) {
         // 检查状态文件，取不到文件默认1000
-        let statusCode = utils.getStatus('status_code'),
+        let {
+            status_code: statusCode,
+            err_from: errFrom // 错误来源
+        } = utils.getStatus(),
             that = this;
         // 状态码<2000，说明出现了错误，可以尝试revive  
         if (statusCode && statusCode < 2000) {
-            wsHandler.send(utils.buildWSReq('revive')); // 向实例端发送revive信号
+            if (errFrom === 'insside') // 是来自实例端的错误, 对症下药
+                wsHandler.send(utils.buildWSReq('revive')); // 向实例端发送revive信号
             // 加上1000就是原来的状态码
             utils.setStatus(statusCode + 1000)
                 .then(res => {
-                    that.resume(); // 尝试恢复
+                    if (errFrom === 'backend') // 是来自主控端的错误
+                        that.resume(); // 尝试恢复
                 }).catch(err => {
                     console.log(`Failed to revive due to status set error:${err}`);
                 })
@@ -513,9 +541,12 @@ module.exports = {
      * 在revive都没办法的情况下，可以利用wipe_butt直接退还实例等资源(擦屁股方法)
      */
     wipeButt: () => {
+        serverEvents.emit('stopmonitor'); // 停止monitor，防止清理的时候还保持着Websocket连接
         ServerDeploy.cleanDeploy()
-            .then(res => {
-                utils.setStatus(2000); // 恢复到初始状态
+            .then(success => {
+                if (success)
+                    // 成功了就恢复到初始状态
+                    utils.setStatus(2000);
             }).catch(err => {
                 utils.errorHandler(`Failed to terminate resources:${err}`);
             })

@@ -39,6 +39,7 @@ const BACK_END_STATUS_FILE_PATH = path.join(__dirname, '../backend_status.json')
 const INITIAL_BACKEND_STATUS = {
     status_msg: 'Everything\'s Fine', // 状态信息
     status_code: 2000, // 状态代码
+    err_from: null, // 错误来源'insside'/'backend'
     last_err: '', // 上一次错误的信息
     last_err_time: null // 上一次错误的时间
 };
