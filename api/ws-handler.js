@@ -64,7 +64,13 @@ function router(recvObj, ws) {
                 outputer(2, 'Invalid status code from InsSide!');
             }
             break;
-        case 'log_sync': // 同步一条日志
+        case 'mc_log_sync': // 增量同步Minecraft服务器日志
+            {
+                let { logs, reread } = recvObj; // 取得更新的日志字符串
+                utils.recvMCLogs(logs, reread); // 更新日志
+            }
+            break;
+        case 'log_sync': // 同步一条实例端日志
             {
                 let { level, msg, time, error } = recvObj; // 获得日志数据
                 if (!error) {

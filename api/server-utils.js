@@ -30,6 +30,8 @@ const MC_SERVER_INFO_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/mc_
 // 增量备份文件记录数据
 const BACKUP_RECORD_FILE_NAME = 'backup_record.json';
 const BACKUP_RECORD_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/${BACKUP_RECORD_FILE_NAME}`);
+// Minecraft服务器日志文件路径
+const MC_SERVER_LOG_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/mc_latest.log`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
 const INS_DATA_DIR = configs['insDataDir'];
 
@@ -41,6 +43,32 @@ try {
     fs.writeFileSync(BACKEND_STATUS_FILE_PATH, JSON.stringify(configs['initialBackendStatus']), {
         encoding: 'utf8'
     });
+}
+
+/**
+ * （同步）接收Minecraft服务器的日志
+ * @param {String} logStr 日志字符串
+ * @param {Boolean} logReread 是否重读了日志
+ * @return {Boolean} 是否接收成功
+ */
+function recvMCLogs(logStr, logReread) {
+    try {
+        if (logReread) {
+            // 重读日志，直接覆盖写入
+            fs.writeFileSync(MC_SERVER_LOG_FILE_PATH, logStr, {
+                encoding: 'utf8'
+            });
+        } else {
+            // 追加写入
+            fs.appendFileSync(MC_SERVER_LOG_FILE_PATH, logStr, {
+                encoding: 'utf8'
+            });
+        }
+    } catch (e) {
+        outputer(2, `Failed to receive Minecraft server logs:${e}`);
+        return false;
+    }
+    return true;
 }
 
 /**
@@ -656,5 +684,6 @@ module.exports = {
     flushCommands,
     recordBackup,
     backupExists,
-    readBackupRecs
+    readBackupRecs,
+    recvMCLogs
 }

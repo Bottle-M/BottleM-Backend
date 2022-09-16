@@ -103,6 +103,10 @@ api_configs:
             - password RCON连接密码
                 【默认】'123456'
 
+        - mc_server_log Minecraft服务器日志文件路径，用于监视
+            一定要是绝对路径
+            【默认】'/root/minecraft/logs/latest.log'
+
         - packed_server_dir Minecraft服务器文件压缩包所在目录，无论是刚刚开始部署的解包，还是服务器关闭后的打包，都是在这个目录内进行的，另外程序可能还会扫描该目录内压缩包总大小，在服务器关闭打包后进行比对
             必须是绝对路径
             【默认】'/root/serverPacked'

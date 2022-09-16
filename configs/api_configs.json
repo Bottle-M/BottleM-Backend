@@ -67,6 +67,7 @@
             "port": 25575,
             "password": "123456"
         },
+        "mc_server_log": "/root/minecraft/logs/latest.log",
         "packed_server_dir": "/root/serverPacked",
         "mc_server_dir": "/root/minecraft",
         "script_exec_dir": "/root",
