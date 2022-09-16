@@ -1,5 +1,6 @@
 // server.js中常用的工具
 'use strict';
+const { EventEmitter } = require('events');
 const fs = require('fs');
 const ascFs = fs.promises;
 const chalk = require('chalk');
@@ -10,6 +11,7 @@ const outputer = require('../basic/output');
 const WebSocket = require('ws');
 const ssh2Client = require('ssh2').Client;
 const configs = require('../basic/config-box');
+const serverEvents = new EventEmitter();
 const API_CONFIGS = configs['apiConfigs'];
 const {
     backendStatusPath: BACKEND_STATUS_FILE_PATH,
@@ -486,7 +488,7 @@ function connectInsSSH(ip = '') {
  * 监听WebSocket连接是否正常
  */
 function wsHeartBeat() {
-    console.log('ping');
+    console.log('[InsSide-WS]Heartbeating...');
     // 获得最大等待时间
     let maxWaitTime = API_CONFIGS['ins_side']['ws_ping_timeout'];
     clearTimeout(this.pingTimeout);
@@ -685,5 +687,6 @@ module.exports = {
     recordBackup,
     backupExists,
     readBackupRecs,
-    recvMCLogs
+    recvMCLogs,
+    serverEvents
 }

@@ -1,11 +1,19 @@
 'use strict';
+const { WebSocketServer } = require('ws');
 const httpServer = require('http');
+const { serverEvents } = require('./api/server-utils');
 const outputer = require('./basic/output');
 const router = require('./api/http-router');
 const auther = require('./basic/token-auth');
-// 获得api服务开放端口
-const HTTP_API_PORT = require('./basic/config-box')['apiConfigs']['api_port'];
+const API_CONFIGS = require('./basic/config-box')['apiConfigs'];
+// 获得HTTP API服务开放端口
+const HTTP_API_PORT = API_CONFIGS['api_port'];
+// 获得WebSocket服务开放端口
+const MC_LOG_WS_PORT = API_CONFIGS['ws_port'];
+// 获得WebSocket连接超时时间
+const WS_CONN_TIMEOUT = API_CONFIGS['ws_ping_timeout'];
 
+// HTTP服务
 httpServer.createServer(function (req, res) {
     let reqUrl = new URL(req.url, 'http://localhost'), // 构建一个URL对象
         reqPath = reqUrl.pathname, // 获得请求路径
@@ -58,6 +66,68 @@ httpServer.createServer(function (req, res) {
     });
 }).listen(HTTP_API_PORT, () => {
     // 监听指定端口
-    outputer(1, 'HTTP API Launched successfully.');
+    outputer(1, `HTTP API Launched successfully (Port:${HTTP_API_PORT}).`);
 });
 
+// Minecraft日志递送WebSocket服务器
+const mcLogServer = new WebSocketServer({
+    port: MC_LOG_WS_PORT,
+    clientTracking: true
+});
+// WebSocket心跳
+const wsBeatBack = function () {
+    if (this.authorized)// 前提：连接已经通过认证
+        this.connAlive = true; // 标记连接正常
+}
+// 处理WebSocket连接
+mcLogServer.on('listening', () => {
+    outputer(1, `WebSocket Server started successfully (Port:${MC_LOG_WS_PORT}).`);
+}).on('connection', (ws) => {
+    ws.connAlive = true; // 新连接默认都是正常的
+    ws.on('message', (message) => {
+        let parsed;
+        try { // 防止非法数据给整崩了
+            parsed = JSON.parse(message);
+        } catch (e) {
+            parsed = {};
+        }
+        // 权限节点websocket.mclog.receive
+        if (auther(parsed['key'], ['websocket', 'mclog', 'receive'])) {
+            ws.authorized = true; // 标记连接已经认证
+            ws.connAlive = true; // 标记连接存活
+            wsBeatBack.call(ws);
+        } else {
+            // 未通过认证的直接关闭
+            ws.close(1000, 'Nanoconnection, son.');
+        }
+    }).on('close', () => {
+        ws.connAlive = false; // 标记连接已经死亡
+        console.log('Connection closed');
+    }).on('pong', wsBeatBack.bind(ws)); // 接受心跳（pong是为响应ping而自动发送的）
+}).on('error', (err) => {
+    outputer(3, `Websocket Server Error:${err}.`);
+});
+
+const beatInterval = setInterval(() => {
+    mcLogServer.clients.forEach((ws) => { // 检测死亡连接
+        if (!ws.connAlive) { // 连接非存活
+            return ws.terminate(); // 强制终止连接
+        }
+        ws.connAlive = false; // 标记连接非存活
+        ws.ping(); // 发送心跳包
+    });
+}, WS_CONN_TIMEOUT);
+
+// Minecraft日志更新事件
+serverEvents.on('mclogupdate', (logStr) => {
+    // 向所有认证端发送日志
+    mcLogServer.clients.forEach((ws) => {
+        if (ws.authorized)
+            ws.send(logStr);
+    });
+});
+
+// ws服务关闭时清理
+mcLogServer.on('close', () => {
+    clearInterval(beatInterval);
+});

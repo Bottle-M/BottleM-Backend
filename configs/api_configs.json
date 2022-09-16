@@ -1,5 +1,7 @@
 {
     "api_port": 2333,
+    "ws_port": 2334,
+    "ws_ping_timeout": 20000,
     "logs_dir": "./api_logs",
     "rows_per_log": 200,
     "max_logs_retained": 30,

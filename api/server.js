@@ -1,6 +1,5 @@
 // 服务器相关API
 'use strict';
-const { EventEmitter } = require('events');
 const fs = require('fs');
 const ascFs = fs.promises;
 const path = require('path');
@@ -9,7 +8,6 @@ const outputer = require('../basic/output');
 const utils = require('./server-utils');
 const wsHandler = require('./ws-handler');
 const configs = require('../basic/config-box');
-const serverEvents = new EventEmitter();
 const API_CONFIGS = configs['apiConfigs'];
 // launch.lock这个文件存在则代表服务器已经部署
 const LOCK_FILE_PATH = configs['launchLockPath'];
@@ -263,7 +261,7 @@ class Server {
 
                 outputer(1, 'WebSocket Connected.');
                 // 擦屁股(释放实例等资源)时，要退出monitor
-                serverEvents.once('stopmonitor', () => {
+                utils.serverEvents.once('stopmonitor', () => {
                     console.log('Monitor stopped.');
                     cleanWS(ws);
                     reject(null); // reject一个null，不会触发errorHandler
@@ -291,7 +289,7 @@ class Server {
                     });
             }).finally(() => {
                 // 移除所有擦屁股事件监听器
-                serverEvents.removeAllListeners('stopmonitor');
+                utils.serverEvents.removeAllListeners('stopmonitor');
             })
         }).then(reconnect => {
             if (reconnect) {
@@ -532,7 +530,7 @@ module.exports = {
      * 在revive都没办法的情况下，可以利用wipe_butt直接退还实例等资源(擦屁股方法)
      */
     wipeButt: () => {
-        serverEvents.emit('stopmonitor'); // 停止monitor，防止清理的时候还保持着Websocket连接
+        utils.serverEvents.emit('stopmonitor'); // 停止monitor，防止清理的时候还保持着Websocket连接
         ServerDeploy.cleanDeploy()
             .then(success => {
                 if (success)

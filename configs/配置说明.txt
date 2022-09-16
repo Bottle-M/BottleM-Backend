@@ -1,5 +1,7 @@
 api_configs:
     api_port - HTTP API端口
+    ws_port - 主控端中转Minecraft日志的WebSocket服务器端口
+    ws_ping_timeout - 上述WebSocket服务器中连接的超时时间
     logs_dir - 日志目录，相对于index.js所在目录
     rows_per_log - 每个日志最多储存多少行
     max_logs_retained - 最多保留多少个日志文件（不包括latest.log）

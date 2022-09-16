@@ -68,6 +68,8 @@ function router(recvObj, ws) {
             {
                 let { logs, reread } = recvObj; // 取得更新的日志字符串
                 utils.recvMCLogs(logs, reread); // 更新日志
+                // 触发日志更新事件，通过WebSocket推送
+                utils.serverEvents.emit('mclogupdate', logs);
             }
             break;
         case 'log_sync': // 同步一条实例端日志

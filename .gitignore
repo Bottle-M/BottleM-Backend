@@ -152,6 +152,8 @@ backend_status.json
 
 test.js
 
+test.html
+
 *.code-workspace
 
 数据统计的内容.txt
