@@ -2,6 +2,14 @@
 'use strict';
 const server = require('./server');
 const utils = require('./server-utils');
+// 采用POST请求的操作
+const USING_POST_METHODS = {
+    server: {
+        command: {
+            send: true
+        }
+    }
+};
 
 // 检查是否意外重启
 let currentStatus = utils.getStatus('status_code');
@@ -14,12 +22,12 @@ if (currentStatus && currentStatus > 2000) {
 /**
  * 针对backend操作进行分发
  * @param {Object} resultObj 返回数据
- * @param {String} reqPath 在backend下的请求路径
- * @param {URLSearchParams} reqParams 请求的参数
- * @param {String} reqMethod 请求的方法（小写，get/post/put...）
+ * @param {String} reqNode 在backend下请求的节点
+ * @param {String} reqAction 请求的操作
+ * @param {URLSearchParams} postParams POST的数据
  * @returns 返回一个对象，包含了请求的结果
  */
-function backendRouter(resultObj, reqPath, reqParams, reqMethod) {
+function backendRouter(resultObj, reqNode, reqAction, postParams) {
 
     return resultObj;
 }
@@ -27,20 +35,22 @@ function backendRouter(resultObj, reqPath, reqParams, reqMethod) {
 /**
  * 针对server操作进行分发
  * @param {Object} resultObj 返回数据
- * @param {String} reqPath 在server下的请求路径
+ * @param {String} reqNode 在server下请求的节点
  * @param {String} reqAction 请求的操作
- * @param {String} reqMethod 请求的方法（小写，get/post/put...）
  * @param {URLSearchParams} postParams POST的数据
  * @returns 返回一个对象，包含了请求的结果
  */
-function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
+function serverRouter(resultObj, reqNode, reqAction, postParams) {
     let action = reqAction || '',
         underMaintenance = false;
     outer:
-    switch (reqPath) {
+    switch (reqNode) {
+        case 'mc_logs': // /server/mc_logs
+
+            break;
         case 'command': { // /server/command
             let command = postParams.get('command');
-            if (reqMethod === 'post' && action === 'send' && command) {
+            if (action === 'send' && command) {
                 server.sendCommand(command, resultObj);
             } else {
                 resultObj.msg = 'Invalid Request';
@@ -113,14 +123,24 @@ function serverRouter(resultObj, reqPath, reqAction, reqMethod, postParams) {
  * @return 返回一个对象，包含了请求的结果
  */
 module.exports = function (reqObj, resultObj) {
-    let { reqPath, params, method, postParams } = reqObj;
+    let { reqPath, method, postParams } = reqObj;
     if (reqPath[1]) {
-        switch (reqPath[0]) {
+        let [reqResrc, reqNode, reqAction] = reqPath, // 获得请求的资源，节点和操作
+            resPostObj = USING_POST_METHODS[reqResrc] || {},
+            nodePostObj = resPostObj[reqNode] || {},
+            actionUsingPost = nodePostObj[reqAction] || false; // 检查操作是否需要POST
+        if (actionUsingPost && method !== 'post') {
+            // 需要使用POST但是没有使用POST的操作，直接返回错误
+            resultObj.msg = 'Method Not Allowed';
+            resultObj.status = 405;
+            return resultObj;
+        }
+        switch (reqResrc) {
             case 'server':
-                serverRouter(resultObj, reqPath[1], reqPath[2], method, postParams);
+                serverRouter(resultObj, reqNode, reqAction, postParams);
                 break;
             case 'backend':
-                backendRouter(resultObj, reqPath[1], params, method);
+                backendRouter(resultObj, reqNode, reqAction, postParams);
                 break;
             default:
                 resultObj.msg = 'Invalid Request';

@@ -1,6 +1,6 @@
 'use strict';
-const { WebSocketServer } = require('ws');
 const httpServer = require('http');
+const { WebSocketServer } = require('ws');
 const { serverEvents } = require('./api/server-utils');
 const outputer = require('./basic/output');
 const router = require('./api/http-router');
@@ -17,7 +17,6 @@ const WS_CONN_TIMEOUT = API_CONFIGS['ws_ping_timeout'];
 httpServer.createServer(function (req, res) {
     let reqUrl = new URL(req.url, 'http://localhost'), // 构建一个URL对象
         reqPath = reqUrl.pathname, // 获得请求路径
-        reqParams = reqUrl.searchParams, // 获得请求参数
         reqMethod = req.method.toLowerCase(),// 获得请求方法
         authStr = req.headers['authorization'] || '', // 获得请求头的authorization
         authToken = authStr.replace(/^(Bearer\s+?)(\S+)$/i, (match, p1, p2) => p2), // 把token提取出来
@@ -25,7 +24,9 @@ httpServer.createServer(function (req, res) {
             data: new Object(),
             code: -1, // 0代表异步处理，为1则代表成功，为-1代表失败
             msg: '',
-            status: 200 // 返回状态码
+            respType: 'json', // 返回类型(json/plain)
+            status: 200, // 返回状态码
+            readableStream: null // 可读流(respType为plain时有效)
         },
         postBody = ''; // POST请求的body
     // 接收POST请求的数据
@@ -52,7 +53,6 @@ httpServer.createServer(function (req, res) {
             // 路由转交任务
             resultObj = router({
                 reqPath: reqPath,
-                params: reqParams,
                 method: reqMethod,
                 postParams: postParams
             }, resultObj);
@@ -60,9 +60,18 @@ httpServer.createServer(function (req, res) {
             resultObj.msg = 'Permission Denied';
             resultObj.status = 403;
         }
-        res.writeHead(resultObj.status, { 'Content-Type': 'application/json' });
-        delete resultObj['status']; // 移除status字段
-        res.end(JSON.stringify(resultObj));
+        switch (resultObj.respType) {
+            case 'plain': // 直接返回文本（用于流式传输服务器日志）
+
+                break; 
+            default: // 默认返回JSON
+                res.writeHead(resultObj.status, { 'Content-Type': 'application/json' });
+                delete resultObj['status']; // 移除status字段
+                delete resultObj['respType']; // 移除respType字段
+                delete resultObj['readableStream']; // 移除readableStream字段
+                res.end(JSON.stringify(resultObj));
+                break;
+        }
     });
 }).listen(HTTP_API_PORT, () => {
     // 监听指定端口
@@ -95,7 +104,6 @@ mcLogServer.on('listening', () => {
         if (auther(parsed['key'], ['websocket', 'mclog', 'receive'])) {
             ws.authorized = true; // 标记连接已经认证
             ws.connAlive = true; // 标记连接存活
-            wsBeatBack.call(ws);
         } else {
             // 未通过认证的直接关闭
             ws.close(1000, 'Nanoconnection, son.');

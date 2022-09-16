@@ -19,7 +19,8 @@
     - /send 发送命令 √
         - 方式：POST，表单字段包含 command - 命令内容
 
-/server/logs 日志获取节点(特殊)
+/server/mc_logs 日志获取节点(特殊)
+    - /get 获得日志
 
 /server/query 查询节点
     - /mc 查询Minecraft服务器状态
