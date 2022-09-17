@@ -13,7 +13,7 @@ const MC_LOG_WS_PORT = API_CONFIGS['ws_port'];
 // 获得WebSocket连接超时时间
 const WS_CONN_TIMEOUT = API_CONFIGS['ws_ping_timeout'];
 
-// HTTP服务
+// ------------------------------------------HTTP服务
 httpServer.createServer(function (req, res) {
     let reqUrl = new URL(req.url, 'http://localhost'), // 构建一个URL对象
         reqPath = reqUrl.pathname, // 获得请求路径
@@ -24,9 +24,9 @@ httpServer.createServer(function (req, res) {
             data: new Object(),
             code: -1, // 0代表异步处理，为1则代表成功，为-1代表失败
             msg: '',
-            respType: 'json', // 返回类型(json/plain)
+            respType: 'json', // 返回类型(json/text)
             status: 200, // 返回状态码
-            readableStream: null // 可读流(respType为plain时有效)
+            readableStream: null // 可读流(respType为text时有效)
         },
         postBody = ''; // POST请求的body
     // 接收POST请求的数据
@@ -61,9 +61,16 @@ httpServer.createServer(function (req, res) {
             resultObj.status = 403;
         }
         switch (resultObj.respType) {
-            case 'plain': // 直接返回文本（用于流式传输服务器日志）
-
-                break; 
+            case 'text': // 直接返回文本（用于流式传输服务器日志）
+                res.writeHead(resultObj.status, { 'Content-Type': 'text/plain' });
+                if (!resultObj.readableStream) {
+                    res.end(''); // 返回空白
+                } else {
+                    resultObj.readableStream.pipe(res, {
+                        end: true // 可读流关闭时也关闭可写流res
+                    }); // 如果有，就返回可读流
+                }
+                break;
             default: // 默认返回JSON
                 res.writeHead(resultObj.status, { 'Content-Type': 'application/json' });
                 delete resultObj['status']; // 移除status字段
@@ -78,7 +85,7 @@ httpServer.createServer(function (req, res) {
     outputer(1, `HTTP API Launched successfully (Port:${HTTP_API_PORT}).`);
 });
 
-// Minecraft日志递送WebSocket服务器
+// ------------------------------------------Minecraft日志递送WebSocket服务器
 const mcLogServer = new WebSocketServer({
     port: MC_LOG_WS_PORT,
     clientTracking: true

@@ -48,6 +48,20 @@ try {
 }
 
 /**
+ * （同步）返回Minecraft服务器日志的readableStream
+ * @returns {ReadableStream|null} 如果失败会返回null
+ */
+function readMCLogs() {
+    try {
+        // 先检查文件是否存在
+        fs.statSync(MC_SERVER_LOG_FILE_PATH);
+        return fs.createReadStream(MC_SERVER_LOG_FILE_PATH);
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
  * （同步）接收Minecraft服务器的日志
  * @param {String} logStr 日志字符串
  * @param {Boolean} logReread 是否重读了日志
@@ -688,5 +702,6 @@ module.exports = {
     backupExists,
     readBackupRecs,
     recvMCLogs,
-    serverEvents
+    serverEvents,
+    readMCLogs
 }

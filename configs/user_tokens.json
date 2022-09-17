@@ -8,7 +8,8 @@
             "server.normal.*",
             "server.command.*",
             "backend.*",
-            "websocket.mclog.receive"
+            "websocket.mclog.receive",
+            "server.mc_logs.*"
         ]
     }
 }

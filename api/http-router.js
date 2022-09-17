@@ -46,7 +46,15 @@ function serverRouter(resultObj, reqNode, reqAction, postParams) {
     outer:
     switch (reqNode) {
         case 'mc_logs': // /server/mc_logs
-
+            if (action === 'get') {
+                // 文本形式返回
+                resultObj.respType = 'text';
+                // 获得可读流（如果失败就是null）
+                resultObj.readableStream = utils.readMCLogs();
+            } else {
+                resultObj.msg = 'Invalid Request';
+                resultObj.status = 400;
+            }
             break;
         case 'command': { // /server/command
             let command = postParams.get('command');
