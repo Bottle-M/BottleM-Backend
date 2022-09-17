@@ -30,6 +30,7 @@ class Server {
         this._maintain = false; // 默认不是维护模式
         this._restore = false; // 默认不对增量备份(如果有的话)进行任何操作
         this._cleaningUp = false; // 是否正在清理(防止cleanDeploy重复执行)
+        this._instanceIp = ''; // 临时记录实例IP
     }
     /**
      * 比价，然后创建实例
@@ -114,7 +115,8 @@ class Server {
         let timer = null,
             alreadyWaitFor = 0, // 已经等待了多久（毫秒）
             queryInterval = 5000, // 每5秒查询一次
-            sshConn = null; // 保存ssh连接
+            sshConn = null, // 保存ssh连接
+            that = this;
         // 此部分用于resume
         if (this._initialStatusCode >= 2200) {
             // 如果状态码大于等于2200，说明已经进入第三阶段
@@ -161,6 +163,7 @@ class Server {
             }).then(res => {
                 return utils.connectInsSSH(pubIp).then(conn => {
                     outputer(1, 'Successfully connected to the instance.');
+                    that._instanceIp = pubIp; // 记录实例IP
                     return Promise.resolve(conn);
                 });
             });
@@ -241,11 +244,13 @@ class Server {
         let that = this;
         utils.setStatus(2200); // 尝试连接实例端
         utils.setMCInfo([
+            'ip', // 记录服务器ip
             'connect_time', // 记录连接时间
             'idling_time_left', // 初始化剩余空闲时间
             'players_online', // 初始化在线玩家数
             'players_max' // 初始化最大玩家数
         ], [
+            this._instanceIp,
             Date.now(),
             0,
             0,
@@ -335,6 +340,7 @@ class Server {
     cleanDeploy() {
         if (this._cleaningUp)
             return Promise.resolve(false);
+        this._instanceIp = ''; // 清空缓存的实例IP
         this._cleaningUp = true; // 标记正在清理中
         let details = utils.getInsDetail() || [],
             keyId = details['instance_key_id'],

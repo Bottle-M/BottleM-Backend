@@ -9,7 +9,8 @@
             "server.command.*",
             "backend.*",
             "websocket.mclog.receive",
-            "server.mc_logs.*"
+            "server.mc_logs.*",
+            "server.query.*"
         ]
     }
 }

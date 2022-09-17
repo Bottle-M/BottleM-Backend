@@ -141,6 +141,14 @@ function updateBackendStatus(keys, values) {
     return jsons.scSet(BACKEND_STATUS_FILE_PATH, keys, values);
 }
 
+/**
+ * （同步）读取backend_status状态文件
+ * @returns {Object|null} 如果失败会返回null
+ */
+function getBackendStatus() {
+    return jsons.scRead(BACKEND_STATUS_FILE_PATH);
+}
+
 
 /**
  * （同步）根据状态代号设置状态信息
@@ -423,12 +431,15 @@ function setMCInfo(keys, values) {
 
 /**
  * 获得Minecraft服务器的相关信息
- * @param {String|null} key 获取的值对应的键名
+ * @param {String} key 获取的值对应的键名，如果不传入则返回整个对象
  * @returns 对应的信息值，如果没有会返回null
  */
-function getMCInfo(key) {
+function getMCInfo(key = '') {
     let infoObj = jsons.scRead(MC_SERVER_INFO_FILE_PATH); // 读取包含服务器信息的对象
-    return infoObj[key] || null;
+    if (infoObj) {
+        return key ? (infoObj[key] || null) : infoObj;
+    }
+    return null;
 }
 
 
@@ -674,6 +685,7 @@ function flushCommands() {
 
 module.exports = {
     updateBackendStatus,
+    getBackendStatus,
     setStatus,
     getStatus,
     getInsDetail,

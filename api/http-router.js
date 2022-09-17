@@ -45,6 +45,36 @@ function serverRouter(resultObj, reqNode, reqAction, postParams) {
         underMaintenance = false;
     outer:
     switch (reqNode) {
+        case 'query': // /server/query
+            switch (action) {
+                case 'mc': // 查询Minecraft服务器相关信息
+                    {
+                        let mcServerInfo = utils.getMCInfo();
+                        if (mcServerInfo) {
+                            // 获得成功
+                            resultObj.msg = 'Success.';
+                            resultObj.data = mcServerInfo;
+                            resultObj.code = 1;
+                        } else {
+                            resultObj.msg = 'Minecraft Server Not Running.';
+                        }
+                    }
+                    break;
+                case 'backend': // 查询主控端相关信息
+                    {
+                        let backendStatus = utils.getBackendStatus();
+                        // 获得成功
+                        resultObj.msg = 'Success.';
+                        resultObj.data = backendStatus;
+                        resultObj.code = 1;
+                    }
+                    break;
+                default:
+                    resultObj.msg = 'Lack of Valid Action';
+                    resultObj.status = 400;
+                    break;
+            }
+            break;
         case 'mc_logs': // /server/mc_logs
             if (action === 'get') {
                 // 文本形式返回
