@@ -29,7 +29,7 @@
     },
     "instance_run_timeout": 90000,
     "instance_deploy_sh": "set_up_base.sh",
-    "instance_connect_retry": 2,
+    "instance_connect_retry": 3,
     "ssh_ready_timeout": 20000,
     "ssh_keep_alive_interval": 8000,
     "tokens": {
