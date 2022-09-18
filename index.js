@@ -2,9 +2,9 @@
 const httpServer = require('http');
 const { WebSocketServer } = require('ws');
 const { serverEvents } = require('./api/server-utils');
+const { auther } = require('./basic/token-auth');
 const outputer = require('./basic/output');
 const router = require('./api/http-router');
-const auther = require('./basic/token-auth');
 const API_CONFIGS = require('./basic/config-box')['apiConfigs'];
 // 获得HTTP API服务开放端口
 const HTTP_API_PORT = API_CONFIGS['api_port'];
@@ -28,7 +28,23 @@ httpServer.createServer(function (req, res) {
             status: 200, // 返回状态码
             readableStream: null // 可读流(respType为text时有效)
         },
+        headers = {
+            'Allow': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        },
         postBody = ''; // POST请求的body
+    // 特殊处理OPTIONS请求(因为前端跨域要预检)，直接返回200
+    if (reqMethod === 'options') {
+        resultObj.code = 1;
+        resultObj.msg = 'OK';
+        res.writeHead(resultObj.status, headers);
+        res.end(JSON.stringify(resultObj));
+        return;
+    }
+    // 正式开始处理请求
     // 接收POST请求的数据
     req.on('data', (chunk) => {
         postBody += chunk;
@@ -42,17 +58,17 @@ httpServer.createServer(function (req, res) {
     // POST请求数据接收完毕
     req.on('end', () => {
         // 解析postBody
-        let postParams = new URLSearchParams(postBody);
+        const postParams = new URLSearchParams(postBody);
         // 开始处理请求
         // 将请求路径进行分割
-        reqPath = reqPath.split('/').filter(item => item !== '');
+        const reqPathArr = reqPath.split('/').filter(item => item !== '');
         if (!authToken) { // 没有token
             resultObj.msg = 'Unauthorized';
             resultObj.status = 401;
-        } else if (auther(authToken, reqPath)) { // 鉴权通过
+        } else if (auther(authToken, reqPathArr)) { // 鉴权通过
             // 路由转交任务
             resultObj = router({
-                reqPath: reqPath,
+                reqPath: reqPathArr,
                 method: reqMethod,
                 postParams: postParams
             }, resultObj);
@@ -62,7 +78,8 @@ httpServer.createServer(function (req, res) {
         }
         switch (resultObj.respType) {
             case 'text': // 直接返回文本（用于流式传输服务器日志）
-                res.writeHead(resultObj.status, { 'Content-Type': 'text/plain' });
+                headers['Content-Type'] = 'text/plain';
+                res.writeHead(resultObj.status, headers);
                 if (!resultObj.readableStream) {
                     res.end(''); // 返回空白
                 } else {
@@ -72,7 +89,7 @@ httpServer.createServer(function (req, res) {
                 }
                 break;
             default: // 默认返回JSON
-                res.writeHead(resultObj.status, { 'Content-Type': 'application/json' });
+                res.writeHead(resultObj.status, headers);
                 delete resultObj['status']; // 移除status字段
                 delete resultObj['respType']; // 移除respType字段
                 delete resultObj['readableStream']; // 移除readableStream字段

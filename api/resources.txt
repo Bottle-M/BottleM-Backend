@@ -23,8 +23,8 @@
     - /get 获得日志 √
 
 /server/query 查询节点
-    - /mc 查询Minecraft服务器状态
-    - /backend 查询后端服务状态
+    - /mc 查询Minecraft服务器状态 √
+    - /backend 查询后端服务状态 √
 
 /backend/statistics 统计节点
     - /costs 查询服务器费用
@@ -32,6 +32,7 @@
 
 /backend/token 临时api请求token生成的节点
     - /generate 生成游客访问token
+        - 方式：POST，表单字段包含 validity - token有效时间(毫秒)，可以不传入
 
 > 返回数据中code为0代表异步处理，为1则代表成功，为-1代表失败
 

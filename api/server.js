@@ -5,6 +5,7 @@ const ascFs = fs.promises;
 const path = require('path');
 const cloud = require('./qcloud');
 const outputer = require('../basic/output');
+const tools = require('../basic/tools');
 const utils = require('./server-utils');
 const wsHandler = require('./ws-handler');
 const configs = require('../basic/config-box');
@@ -523,7 +524,7 @@ module.exports = {
                     resultObj.msg = 'Urgent backup exists, please use action: restore_and_launch';
                 } else {
                     // 创建launch.lock文件
-                    utils.elasticWrite(LOCK_FILE_PATH, `Launched at ${new Date().toISOString()}`);
+                    tools.elasticWrite(LOCK_FILE_PATH, `Launched at ${new Date().toISOString()}`);
                     ServerDeploy.entry(maintain, restore);
                     resultObj.msg = 'Starting to deploy the server!';
                     resultObj.code = 0; // 0 代表交由异步处理

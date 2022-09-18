@@ -2,11 +2,17 @@
 'use strict';
 const server = require('./server');
 const utils = require('./server-utils');
+const { genTempToken } = require('../basic/token-auth');
 // 采用POST请求的操作
 const USING_POST_METHODS = {
     server: {
         command: {
             send: true
+        }
+    },
+    backend: {
+        token: {
+            generate: true
         }
     }
 };
@@ -28,7 +34,39 @@ if (currentStatus && currentStatus > 2000) {
  * @returns 返回一个对象，包含了请求的结果
  */
 function backendRouter(resultObj, reqNode, reqAction, postParams) {
-
+    let action = reqAction || '';
+    switch (reqNode) {
+        case 'token':
+            switch (action) {
+                case 'generate':
+                    {
+                        let validity = postParams.get('validity') || 0,
+                            [token, expiry, genMsg] = genTempToken(validity);
+                        if (token) {
+                            // 生成成功
+                            resultObj.data = {
+                                token,
+                                expiry
+                            };
+                            resultObj.code = 1;
+                            resultObj.msg = 'Token Generated';
+                        } else {
+                            // 生成失败
+                            resultObj.msg = `Failed to generate:${genMsg}`;
+                        }
+                    }
+                    break;
+                default:
+                    resultObj.msg = 'Lack of Valid Action';
+                    resultObj.status = 400;
+                    break;
+            }
+            break;
+        default:
+            resultObj.msg = 'Non-existent Node';
+            resultObj.status = 400;
+            break;
+    }
     return resultObj;
 }
 

@@ -28,7 +28,7 @@ function configReader(configName) {
 const API_CONFIGS = configReader('api_configs');
 
 // 读取用户token主配置
-const TOKEN_CONFIGS = configReader('user_tokens');
+const USER_TOKENS = configReader('user_tokens');
 
 // 读取secret
 const SECRET_CONFIGS = configReader('secret_configs');
@@ -68,7 +68,7 @@ const DATA_DIR = API_CONFIGS['ins_side']['data_dir'];
 
 module.exports = {
     apiConfigs: API_CONFIGS, // API主配置
-    tokenConfigs: TOKEN_CONFIGS,
+    userTokens: USER_TOKENS,
     secretConfigs: SECRET_CONFIGS,
     statusConfigs: STATUS_CONFIGS,
     backendStatusPath: BACK_END_STATUS_FILE_PATH,

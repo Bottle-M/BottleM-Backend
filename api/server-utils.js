@@ -3,8 +3,8 @@
 const { EventEmitter } = require('events');
 const fs = require('fs');
 const ascFs = fs.promises;
-const chalk = require('chalk');
 const path = require('path');
+const tools = require('../basic/tools');
 const cloud = require('./qcloud');
 const jsons = require('../basic/json-scaffold');
 const outputer = require('../basic/output');
@@ -324,51 +324,8 @@ function errorHandler(msg, errFrom = 'backend', time = 0) {
     });
 }
 
-/**
- * （同步）写入文件（自动创建目录）
- * @param {String} filePath 文件路径
- * @param {String} data 写入的数据
- * @returns {Boolean} 布尔值，代表是否成功
- */
-function elasticWrite(filePath, data) {
-    let dirPath = path.dirname(filePath); // 获得文件目录
-    try {
-        fs.statSync(dirPath); // 检查目录是否存在
-    } catch (e) {
-        fs.mkdirSync(dirPath, { recursive: true }); // 创建目录
-    }
-    try {
-        fs.writeFileSync(filePath, data, {
-            encoding: 'utf8'
-        });
-    } catch (e) {
-        // 创建文件失败
-        console.log(chalk.red(`[ERROR] Failed to write file ${filePath}: ${e}`));
-        return false;
-    }
-    return true;
-}
 
-/**
- * 生成一定长度的随机字符串
- * @param {Number} len 
- * @returns {String} 随机字符串
- */
-function randStr(len) {
-    let charList = 'ABCDEYZ$abcdefFGH#STUVWXghijk_lmnIJKLMNOPQR*opqr$stuvw_xy#z0123456*789',
-        charNum = charList.length,
-        finalStr = ''; // 结果字符串
-    for (let i = 0; i < len; i++) {
-        // 因为JavaScript随机数是伪随机，这里尽量使其更难以摸透
-        let randTimes = Math.floor(Math.random() * 6) + 1,
-            result = 0;
-        for (let j = 0; j < randTimes; j++) {
-            result = Math.floor(Math.random() * charNum);
-        }
-        finalStr += charList[result];
-    }
-    return finalStr;
-}
+
 
 
 /**
@@ -424,7 +381,7 @@ function setMCInfo(keys, values) {
     try {
         fs.statSync(MC_SERVER_INFO_FILE_PATH); // 检查文件是否存在
     } catch (e) {
-        elasticWrite(MC_SERVER_INFO_FILE_PATH, '{}'); // 创建文件
+        tools.elasticWrite(MC_SERVER_INFO_FILE_PATH, '{}'); // 创建文件
     }
     jsons.scSet(MC_SERVER_INFO_FILE_PATH, keys, values);
 }
@@ -450,7 +407,7 @@ function getMCInfo(key = '') {
  */
 function makeInsSideConfig(options = {}) {
     // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
-    INITIAL_INS_SIDE_CONFIGS['secret_key'] = randStr(128);
+    INITIAL_INS_SIDE_CONFIGS['secret_key'] = tools.randStr(128);
     // 实例端状态码配置
     INITIAL_INS_SIDE_CONFIGS['env'] = Object.assign({
         'DATA_DIR': INS_DATA_DIR, // 实例端数据目录
@@ -459,7 +416,7 @@ function makeInsSideConfig(options = {}) {
         'MC_DIR': INITIAL_INS_SIDE_CONFIGS['mc_server_dir'] // Minecraft服务端目录
     }, cloud.environment); // cloud模块定义的环境变量（包含SECRET）
     options = Object.assign(options, INITIAL_INS_SIDE_CONFIGS);
-    elasticWrite(INS_TEMP_CONFIG_FILE_PATH, JSON.stringify(options));
+    tools.elasticWrite(INS_TEMP_CONFIG_FILE_PATH, JSON.stringify(options));
     return [INS_TEMP_CONFIG_FILE_PATH, INS_TEMP_CONFIG_FILE_NAME];
 }
 
@@ -692,10 +649,8 @@ module.exports = {
     setInsDetail,
     errorHandler,
     safeDel,
-    elasticWrite,
     clearServerTemp,
     terminateOOCIns,
-    randStr,
     fastPutFiles,
     toPosixSep,
     makeInsSideConfig,
