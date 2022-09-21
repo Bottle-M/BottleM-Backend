@@ -167,6 +167,8 @@ class Server {
                 return utils.connectInsSSH(pubIp).then(conn => {
                     outputer(1, 'Successfully connected to the instance.');
                     that._instanceIp = pubIp; // 记录实例IP
+                    // 触发事件getip
+                    ServerEvents.emit('getip', pubIp);
                     return Promise.resolve(conn);
                 });
             });
@@ -217,6 +219,7 @@ class Server {
                     }
                     stream.on('close', (code, signal) => {
                         if (code === 0) {
+
                             outputer(1, 'Successfully deployed.');
                             res('done');
                         } else {

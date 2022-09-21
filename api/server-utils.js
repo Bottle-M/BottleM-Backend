@@ -10,7 +10,7 @@ const outputer = require('../basic/output');
 const WebSocket = require('ws');
 const ssh2Client = require('ssh2').Client;
 const configs = require('../basic/config-box');
-const API_CONFIGS = configs['apiConfigs'];
+const { MessageEvents } = require('../basic/events');
 const {
     backendStatusPath: BACKEND_STATUS_FILE_PATH,
     insDetailsPath: INS_DETAILS_FILE_PATH,
@@ -19,6 +19,7 @@ const {
     serverTempDir: SERVER_TEMP_DIR,
     loginKeyPath: LOGIN_KEY_FILE_PATH
 } = configs;
+const API_CONFIGS = configs['apiConfigs'];
 // 实例端最初配置对象
 const INITIAL_INS_SIDE_CONFIGS = API_CONFIGS['ins_side'];
 // 实例端临时配置的文件名（如果这一项改了，InsSide的源码也要改）
@@ -158,6 +159,8 @@ function setStatus(code) {
     let corresponding = configs['statusConfigs'][code],
         msg = corresponding['msg'],
         inform = corresponding['inform'];
+    // 触发statusupdate事件, callback(消息, 是否通知(仅作参考), status代码)
+    MessageEvents.emit('statusupdate', msg, inform, code);
     outputer(1, msg);
     return updateBackendStatus(['status_msg', 'status_code'], [msg, code]);
 }

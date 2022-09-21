@@ -1,6 +1,7 @@
 // 控制台消息输出模块（同时会记录日志）
 'use strict';
 const { promises: fs, statSync, mkdirSync, writeFileSync } = require('fs');
+const { MessageEvents } = require('./events');
 const chalk = require('chalk');
 const path = require('path');
 // 载入配置
@@ -135,13 +136,17 @@ function writeLogs(log, time = 0) {
 function output(level, msg, writeInLog = true, time = 0) {
     switch (level) {
         case 1:
+            // 激发消息事件
+            MessageEvents.emit('normalmsg', msg, false);
             console.log(chalk.green(msg));
             break;
         case 2:
+            MessageEvents.emit('warningmsg', msg, false);
             msg = '[WARNING] ' + msg;
             console.log(chalk.yellow(msg));
             break;
         case 3:
+            MessageEvents.emit('errormsg', msg, true);
             msg = '[ERROR] ' + msg;
             console.log(chalk.red(msg));
             break;

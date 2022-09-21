@@ -42,3 +42,25 @@ Invalid Path - 无效的请求路径
 Lack of Valid Action - 缺少有效的请求参数?act
 Non-existent Node - 访问了不存在的操作节点，比如/server/iehfihfi
 Permission Denied - 访问了错误的路径或者token权限不够
+
+status_codes.json配置的inform仅供参考，具体是否通知取决于实现。
+
+公开的事件：
+
+MessageEvents:
+    statusupdate
+        - callback: (msg,inform,code)
+    normalmsg
+        - callback: (msg,inform)
+    warningmsg
+        - callback: (msg,inform)
+    errormsg
+        - callback: (msg,inform)
+
+ServerEvents:
+    mclogupdate
+        - callback: (logStr)
+    getip
+        - callback: (ip)
+    launchsuccess
+        - callback: (ip)

@@ -19,7 +19,7 @@ cd $INS_EXEC_DIR
 
 # 20条线程下载实例端可执行文件
 
-axel -n 20 https://gitee.com/somebottle/BottleM-InsSide/releases/download/1.0.0/BottleM_InsSide_x64
+axel -n 20 https://gitee.com/somebottle/BottleM-InsSide/releases/download/1.1.0/BottleM-InsSide_linux_x64
 
 if [[ $? -ne 0 ]]; then
     # 克隆代码失败

@@ -3,6 +3,7 @@ const httpServer = require('http');
 const { WebSocketServer } = require('ws');
 const { ServerEvents } = require('./basic/events');
 const { auther } = require('./basic/token-auth');
+const loadExtensions = require('./basic/extensions-loader');
 const outputer = require('./basic/output');
 const router = require('./api/http-router');
 const API_CONFIGS = require('./basic/config-box')['apiConfigs'];
@@ -12,6 +13,9 @@ const HTTP_API_PORT = API_CONFIGS['api_port'];
 const MC_LOG_WS_PORT = API_CONFIGS['ws_port'];
 // 获得WebSocket连接超时时间
 const WS_CONN_TIMEOUT = API_CONFIGS['ws_ping_timeout'];
+
+// 载入扩展
+loadExtensions();
 
 // ------------------------------------------HTTP服务
 httpServer.createServer(function (req, res) {

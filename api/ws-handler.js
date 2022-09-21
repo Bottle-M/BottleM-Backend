@@ -110,6 +110,10 @@ function router(recvObj, ws) {
         case 'revoke_backup': // 舍弃现有的增量备份记录
             utils.recordBackup(null, true); // 删除备份记录
             break;
+        case 'launch_success': // Minecraft服务器刚刚启动成功
+            // 触发启动成功事件
+            ServerEvents.emit('launchsuccess', utils.getInsDetail('instance_ip'));
+            break;
     }
 }
 
