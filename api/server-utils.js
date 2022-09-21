@@ -1,6 +1,5 @@
 // server.js中常用的工具
 'use strict';
-const { EventEmitter } = require('events');
 const fs = require('fs');
 const ascFs = fs.promises;
 const path = require('path');
@@ -11,7 +10,6 @@ const outputer = require('../basic/output');
 const WebSocket = require('ws');
 const ssh2Client = require('ssh2').Client;
 const configs = require('../basic/config-box');
-const serverEvents = new EventEmitter();
 const API_CONFIGS = configs['apiConfigs'];
 const {
     backendStatusPath: BACKEND_STATUS_FILE_PATH,
@@ -669,6 +667,5 @@ module.exports = {
     backupExists,
     readBackupRecs,
     recvMCLogs,
-    serverEvents,
     readMCLogs
 }

@@ -1,7 +1,7 @@
 'use strict';
 const httpServer = require('http');
 const { WebSocketServer } = require('ws');
-const { serverEvents } = require('./api/server-utils');
+const { ServerEvents } = require('./basic/events');
 const { auther } = require('./basic/token-auth');
 const outputer = require('./basic/output');
 const router = require('./api/http-router');
@@ -112,7 +112,7 @@ const wsBeatBack = function () {
     if (this.authorized)// 前提：连接已经通过认证
         this.connAlive = true; // 标记连接正常
 }
-// 处理WebSocket连接
+// 处理WebSocket消息
 mcLogServer.on('listening', () => {
     outputer(1, `WebSocket Server started successfully (Port:${MC_LOG_WS_PORT}).`);
 }).on('connection', (ws) => {
@@ -151,7 +151,7 @@ const beatInterval = setInterval(() => {
 }, WS_CONN_TIMEOUT);
 
 // Minecraft日志更新事件
-serverEvents.on('mclogupdate', (logStr) => {
+ServerEvents.on('mclogupdate', (logStr) => {
     // 向所有认证端发送日志
     mcLogServer.clients.forEach((ws) => {
         if (ws.authorized)
