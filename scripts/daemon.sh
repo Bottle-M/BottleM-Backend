@@ -9,7 +9,7 @@ INS_EXEC_DIR=/root/BottleM-InsSide
 
 while true;
 do
-    $INS_EXEC_DIR/BottleM_InsSide_x64 --data $DATA_DIR
+    $INS_EXEC_DIR/BottleM-InsSide_linux_x64 --data $DATA_DIR
     echo 'Restarting instance side.'
     # 如果进程结束，等待3秒后重启
     sleep 3s

@@ -219,7 +219,6 @@ class Server {
                     }
                     stream.on('close', (code, signal) => {
                         if (code === 0) {
-
                             outputer(1, 'Successfully deployed.');
                             res('done');
                         } else {

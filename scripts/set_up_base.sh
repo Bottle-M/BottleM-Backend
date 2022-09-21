@@ -33,7 +33,7 @@ fi
 
 # screen -L -dmS bottlem node index.js --data /root/baseData
 
-chmod +x ./BottleM_InsSide_x64
+chmod +x ./BottleM-InsSide_linux_x64
 
 # 执行daemon.sh
 screen -L -dmS bottlem $DATA_DIR/daemon.sh
