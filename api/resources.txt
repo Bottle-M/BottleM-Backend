@@ -64,3 +64,5 @@ ServerEvents:
         - callback: (ip)
     launchsuccess
         - callback: (ip)
+    serverclosed
+        - callback: (reason)

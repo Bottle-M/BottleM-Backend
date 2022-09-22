@@ -119,6 +119,13 @@ function router(recvObj, ws) {
             // 触发启动成功事件
             ServerEvents.emit('launchsuccess', utils.getInsDetail('instance_ip'));
             break;
+        case 'server_closed': // Minecraft服务器刚刚关闭
+            {
+                let { reason } = recvObj; // 获得关服原因
+                // 触发服务器关闭事件
+                ServerEvents.emit('serverclosed', reason);
+            }
+            break;
     }
 }
 
