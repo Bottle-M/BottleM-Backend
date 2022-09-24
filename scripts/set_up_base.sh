@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 实例端下载URL
-DOWNLOAD_URL='https://gitee.com/somebottle/BottleM-InsSide/releases/download/1.2.0/BottleM-InsSide_linux_x64'
+DOWNLOAD_URL='https://gitee.com/somebottle/BottleM-InsSide/releases/download/1.2.3/BottleM-InsSide_linux_x64'
 # 实例端数据目录
 DATA_DIR=/root/baseData
 # 实例端可执行文件目录

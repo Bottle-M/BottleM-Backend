@@ -65,12 +65,6 @@ class Server {
         // 可用实例列表（未经筛选）的输出路径，用于检查
         const outputPath = path.join(__dirname, `../${configs['serverTempDir']}/all_available_ins.json`);
         return cloud.filterInsType(outputPath).then(insConfigs => {
-            insConfigs.sort((former, latter) => { // 根据价格、内网带宽进行排序
-                // 计算权重数：先把折扣价*1000，减去内网带宽*20。数值越小，权重越大
-                let formerWeight = former['Price']['UnitPriceDiscount'] * 1000 - former['InstanceBandwidth'] * 20,
-                    latterWeight = latter['Price']['UnitPriceDiscount'] * 1000 - latter['InstanceBandwidth'] * 20;
-                return latterWeight - formerWeight; // 降序，这样后面直接pop就行
-            });
             if (insConfigs.length <= 0) {
                 // 如果没有可用实例，设置状态码为2000，触发错误1000
                 utils.setStatus(2000);
@@ -81,9 +75,9 @@ class Server {
         }).then(insConfigs => {
             utils.setStatus(2002); // 生成密匙对
             return cloud.generateKey().then(keyObj => {
-                let keyId = keyObj['keyId'];
+                let keyId = keyObj.keyId;
                 // 写入密钥文件
-                return ascFs.writeFile(LOGIN_KEY_FILE_PATH, keyObj['privateKey'], {
+                return ascFs.writeFile(LOGIN_KEY_FILE_PATH, keyObj.privateKey, {
                     encoding: 'utf8'
                 }).then(res => {
                     let detailedData = {
@@ -125,52 +119,40 @@ class Server {
             // 如果状态码大于等于2200，说明已经进入第三阶段
             return Promise.resolve('done');
         }
-        return new Promise((res, rej) => {
+        return new Promise((resolve, reject) => {
             utils.setStatus(2100); // 等待实例开始运行
             timer = setInterval(() => {
                 // 每5秒查询一次服务器是否已经启动
-                cloud.describeInstance(insId).then(insInfo => {
-                    //  实例已经启动，可以进行连接
-                    if (insInfo['InstanceState'] === 'RUNNING') {
-                        // 清理计时器（这里不用finally是因为后续请求执行完前不会执行finally中的代码）
+                cloud.checkInstanceState(insId).then(insObj => {
+                    const { running, ip } = insObj;
+                    if (running) {
+                        // 服务器已经启动
+                        // 清理计时器
                         clearInterval(timer);
-                        let pubIp = insInfo['PublicIpAddresses'][0];
-                        if (!pubIp) {
-                            return Promise.reject('No public ip address');
-                        }
                         // 将公网IP写入instance_details
-                        utils.setInsDetail('instance_ip', pubIp)
-                        return Promise.resolve(pubIp);
-                    } else {
-                        return Promise.resolve('');
+                        utils.setInsDetail('instance_ip', ip);
+                        // 继续流程
+                        resolve(ip);
                     }
-                }).then(pubIp => {
-                    if (pubIp) // 如果得到了公网IP，就可以进行连接
-                        res(pubIp);
                 }).catch(err => {
                     clearInterval(timer);
-                    rej(`Error occured while querying the instance: ${err}`);
+                    reject(`Error occured while querying the instance: ${err}`);
                 });
                 alreadyWaitFor += queryInterval;
                 if (alreadyWaitFor >= API_CONFIGS['instance_run_timeout']) {
                     // 等待超时，实例仍然没有启动，肯定出现了问题
                     clearInterval(timer);
-                    rej(`Instance is not going to run: ${err}`);
+                    reject(`Instance is not going to run: timeout`);
                 }
             }, queryInterval);
         }).then((pubIp) => {
             utils.setStatus(2101); // 尝试通过SSH连接实例
-            return new Promise((res) => {
-                // 等待三秒再开始连接
-                setTimeout(res, 3000);
-            }).then(res => {
-                return utils.connectInsSSH(pubIp).then(conn => {
-                    outputer(1, 'Successfully connected to the instance.');
-                    that._instanceIp = pubIp; // 记录实例IP
-                    // 触发事件getip
-                    ServerEvents.emit('getip', pubIp);
-                    return Promise.resolve(conn);
-                });
+            return utils.connectInsSSH(pubIp).then(conn => {
+                outputer(1, 'Successfully connected to the instance.');
+                that._instanceIp = pubIp; // 记录实例IP
+                // 触发事件getip
+                ServerEvents.emit('getip', pubIp);
+                return Promise.resolve(conn);
             });
         }).then((sshConn) => {
             utils.setStatus(2102); // 开始部署实例上的“基地”
@@ -241,11 +223,10 @@ class Server {
     }
     /**
      * 通过WebSocket和实例端进行连接，进行后续流程
-     * @param {Number} retry 重试次数(只有抛出错误时才会重试)
      * @return {Promise} 
      * @note 这是第三个环节
      */
-    insSideMonitor(retry = 0) {
+    insSideMonitor() {
         let that = this;
         utils.setStatus(2200); // 尝试连接实例端
         utils.setMCInfo([
@@ -319,20 +300,10 @@ class Server {
             if (!err) {
                 return Promise.reject(err);
             }
-            // 无法连接到实例端，说明实例端死亡了
+            // 实在无法连接到实例端，说明实例端死亡了
             // 退出monitor
-            const maxRetry = API_CONFIGS['instance_connect_retry'];
-            if (retry >= maxRetry) {
-                outputer(2, `${err}, good bye...`);
-                return Promise.resolve('Oops, InsSide died...');
-            } else {
-                outputer(2, `${err}, retrying...(${retry + 1}/${maxRetry})`);
-                return new Promise((res) => {
-                    setTimeout(res, 3000); // 3秒后重试连接
-                }).then(res => {
-                    return that.insSideMonitor(retry + 1);
-                });
-            }
+            outputer(2, `${err}, good bye...`);
+            return Promise.resolve('Oops, InsSide died...');
         });
     }
     /**
@@ -525,7 +496,7 @@ module.exports = {
             } catch (e) {
                 if (utils.backupExists() && !restore) {
                     // 存在增量备份，这说明上次实例端没有正常退出
-                    resultObj.msg = 'Urgent backup exists, please use action: restore_and_launch';
+                    resultObj.msg = 'Urgent backup exists, please use action: restore_and_launch or launch_and_discard_backup';
                 } else {
                     // 创建launch.lock文件
                     tools.elasticWrite(LOCK_FILE_PATH, `Launched at ${new Date().toISOString()}`);

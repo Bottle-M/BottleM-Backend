@@ -30,17 +30,17 @@ if (currentStatus && currentStatus > 2000) {
  * @param {Object} resultObj 返回数据
  * @param {String} reqNode 在backend下请求的节点
  * @param {String} reqAction 请求的操作
- * @param {URLSearchParams} postParams POST的数据
+ * @param {Object} postObject POST的数据对象
  * @returns 返回一个对象，包含了请求的结果
  */
-function backendRouter(resultObj, reqNode, reqAction, postParams) {
+function backendRouter(resultObj, reqNode, reqAction, postObject) {
     let action = reqAction || '';
     switch (reqNode) {
         case 'token':
             switch (action) {
                 case 'generate':
                     {
-                        let validity = postParams.get('validity') || 0,
+                        let validity = postObject['validity'] || 0,
                             [token, expiry, genMsg] = genTempToken(validity);
                         if (token) {
                             // 生成成功
@@ -75,10 +75,10 @@ function backendRouter(resultObj, reqNode, reqAction, postParams) {
  * @param {Object} resultObj 返回数据
  * @param {String} reqNode 在server下请求的节点
  * @param {String} reqAction 请求的操作
- * @param {URLSearchParams} postParams POST的数据
+ * @param {Object} postObject POST的数据对象
  * @returns 返回一个对象，包含了请求的结果
  */
-function serverRouter(resultObj, reqNode, reqAction, postParams) {
+function serverRouter(resultObj, reqNode, reqAction, postObject) {
     let action = reqAction || '',
         underMaintenance = false;
     outer:
@@ -120,16 +120,22 @@ function serverRouter(resultObj, reqNode, reqAction, postParams) {
                 // 获得可读流（如果失败就是null）
                 resultObj.readableStream = utils.readMCLogs();
             } else {
-                resultObj.msg = 'Invalid Request';
+                resultObj.msg = 'Lack of valid action';
                 resultObj.status = 400;
             }
             break;
         case 'command': { // /server/command
-            let command = postParams.get('command');
-            if (action === 'send' && command) {
-                server.sendCommand(command, resultObj);
+            let command = postObject['command'];
+            if (action === 'send') {
+                if (command) {
+                    server.sendCommand(command, resultObj);
+                } else {
+                    // 未指定命令
+                    resultObj.msg = 'Command not specified';
+                    resultObj.code = -1;
+                }
             } else {
-                resultObj.msg = 'Invalid Request';
+                resultObj.msg = 'Lack of valid action';
                 resultObj.status = 400;
             }
         }
@@ -199,7 +205,7 @@ function serverRouter(resultObj, reqNode, reqAction, postParams) {
  * @return 返回一个对象，包含了请求的结果
  */
 module.exports = function (reqObj, resultObj) {
-    let { reqPath, method, postParams } = reqObj;
+    let { reqPath, method, postObject } = reqObj;
     if (reqPath[1]) {
         let [reqResrc, reqNode, reqAction] = reqPath, // 获得请求的资源，节点和操作
             resPostObj = USING_POST_METHODS[reqResrc] || {},
@@ -213,10 +219,10 @@ module.exports = function (reqObj, resultObj) {
         }
         switch (reqResrc) {
             case 'server':
-                serverRouter(resultObj, reqNode, reqAction, postParams);
+                serverRouter(resultObj, reqNode, reqAction, postObject);
                 break;
             case 'backend':
-                backendRouter(resultObj, reqNode, reqAction, postParams);
+                backendRouter(resultObj, reqNode, reqAction, postObject);
                 break;
             default:
                 resultObj.msg = 'Invalid Request';

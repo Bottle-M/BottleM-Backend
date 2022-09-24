@@ -28,10 +28,11 @@
         "max_spot_price": 0.3
     },
     "instance_run_timeout": 90000,
-    "instance_deploy_sh": "set_up_base.sh",
-    "instance_connect_retry": 3,
+    "ssh_connect_retry": 3,
     "ssh_ready_timeout": 20000,
     "ssh_keep_alive_interval": 8000,
+    "instance_deploy_sh": "set_up_base.sh",
+    "instance_ws_connect_retry": 3,
     "tokens": {
         "default_validity": 720000,
         "max_temp_tokens_num": 200,

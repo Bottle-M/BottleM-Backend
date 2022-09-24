@@ -6,7 +6,6 @@ const utils = require('./server-utils');
 const outputer = require('./../basic/output');
 var dataSending = false; // 是否有正在发送的数据
 var mainConnection = null; // 记录主WebSocket连接
-var previousStatusCode = utils.getStatus('status_code') || 1000; // 先前的状态码
 
 
 /**
@@ -49,11 +48,7 @@ function router(recvObj, ws) {
     switch (action) {
         case 'status_sync': // 同步状态信息
             let statusCode = parseInt(recvObj['status_code']); // 获得状态代码
-            // 如果状态码没有变化就不处理, 防止有时候状态码回传两次
-            if (statusCode === previousStatusCode)
-                break;
             if (statusCode > 2200) { // 状态码要大于2200才正常
-                previousStatusCode = statusCode;
                 outputer(1, '[Status synchronized]');
                 utils.setStatus(statusCode); // 设置状态码
                 if (statusCode >= 2300 && statusCode < 2400) {

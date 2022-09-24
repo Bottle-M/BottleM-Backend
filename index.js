@@ -62,7 +62,14 @@ httpServer.createServer(function (req, res) {
     // POST请求数据接收完毕
     req.on('end', () => {
         // 解析postBody
-        const postParams = new URLSearchParams(postBody);
+        let postObject;
+        try {
+            // 容错处理，防止给整崩了
+            postObject = JSON.parse(postBody);
+        } catch (err) {
+            // 如果传来的不是JSON，就当没收到数据
+            postObject = new Object();
+        }
         // 开始处理请求
         // 将请求路径进行分割
         const reqPathArr = reqPath.split('/').filter(item => item !== '');
@@ -74,7 +81,7 @@ httpServer.createServer(function (req, res) {
             resultObj = router({
                 reqPath: reqPathArr,
                 method: reqMethod,
-                postParams: postParams
+                postObject: postObject
             }, resultObj);
         } else {
             resultObj.msg = 'Permission Denied';

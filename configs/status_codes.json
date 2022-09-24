@@ -57,7 +57,7 @@
     },
     "2401": {
         "msg": "Server closing: packing up the server...",
-        "inform": true
+        "inform": false
     },
     "2402": {
         "msg": "Server closing: uploading the compressed packs...",

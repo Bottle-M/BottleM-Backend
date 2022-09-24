@@ -35,6 +35,8 @@ const BACKUP_RECORD_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/${BA
 const MC_SERVER_LOG_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/mc_latest.log`);
 // 所有必要数据上传到实例中的哪里（绝对路径）
 const INS_DATA_DIR = configs['insDataDir'];
+// 在内存中记录先前的STATUS_CODE，用于setStatus方法
+var PREV_STATUS_CODE = -1; // -1代表未初始化
 
 // 检查backend_status状态记录文件是否存在
 try {
@@ -155,6 +157,8 @@ function getBackendStatus() {
  * @returns {Boolean} 是否成功
  */
 function setStatus(code) {
+    // 如果状态码没有变化，就不要更新了
+    if (code === PREV_STATUS_CODE) return true;
     // 获得对应状态码的配置
     let corresponding = configs['statusConfigs'][code],
         msg = corresponding['msg'],
@@ -162,6 +166,7 @@ function setStatus(code) {
     // 触发statusupdate事件, callback(消息, 是否通知(仅作参考), status代码)
     MessageEvents.emit('statusupdate', msg, inform, code);
     outputer(1, msg);
+    PREV_STATUS_CODE = code; // 更新内存中的状态码
     return updateBackendStatus(['status_msg', 'status_code'], [msg, code]);
 }
 
@@ -403,10 +408,11 @@ function getMCInfo(key = '') {
 
 /**
  * （同步）创建实例端临时配置文件
- * @param {Object} options 要写入实例端配置的对象
+ * @param {Object} addOptions 要额外写入实例端配置的对象
  * @returns {Array} [实例端临时配置文件绝对路径, 实例端临时配置文件名]
+ * @note 注：addOptions对象的内容会被写入实例端配置缓存中，因此只需要传入一次就够了，多传入几回倒也没影响
  */
-function makeInsSideConfig(options = {}) {
+function makeInsSideConfig(addOptions = {}) {
     // 生成长度为128的随机字符串作为实例端和本主控端连接的密匙
     INITIAL_INS_SIDE_CONFIGS['secret_key'] = tools.randStr(128);
     // 实例端状态码配置
@@ -416,7 +422,8 @@ function makeInsSideConfig(options = {}) {
         'FRAGMENTS_DIR': INITIAL_INS_SIDE_CONFIGS['backup_fragments_dir'], // 增量备份碎片目录
         'MC_DIR': INITIAL_INS_SIDE_CONFIGS['mc_server_dir'] // Minecraft服务端目录
     }, cloud.environment); // cloud模块定义的环境变量（包含SECRET）
-    options = Object.assign(options, INITIAL_INS_SIDE_CONFIGS);
+    // addOptions的配置会被加入到INITIAL_INS_SIDE_CONFIGS代表的对象中
+    let options = Object.assign(INITIAL_INS_SIDE_CONFIGS, addOptions);
     tools.elasticWrite(INS_TEMP_CONFIG_FILE_PATH, JSON.stringify(options));
     return [INS_TEMP_CONFIG_FILE_PATH, INS_TEMP_CONFIG_FILE_NAME];
 }
@@ -436,11 +443,14 @@ function getSSHPrivateKey() {
 
 /**
  * （异步）连接实例并返回ssh连接对象
- * @param {String} ip 实例IP
+ * @param {String} ip 实例IP，不传入会自动读取实例配置文件
+ * @param {Number} retry 当前重试次数
  * @returns {Promise} resolve一个ssh2Client对象
  * @note 如果省略ip，则会尝试获取servertemp中实例的IP
  */
-function connectInsSSH(ip = '') {
+function connectInsSSH(ip = '', retry = 0) {
+    // 最多重试连接多少次
+    const maxRetry = API_CONFIGS['ssh_connect_retry'];
     let sshConn = new ssh2Client(); // 创建ssh客户端对象
     ip = ip ? ip : getInsDetail('instance_ip');
     if (!ip)
@@ -448,7 +458,7 @@ function connectInsSSH(ip = '') {
     return new Promise((res, rej) => {
         sshConn.on('ready', () => {
             // 连接成功
-            console.log('Successfully connected to the instance.');
+            console.log('Successfully made SSH connection.');
             res(sshConn); // 把连接传下去
         }).on('error', err => {
             rej(`[SSH]Failed to connect to the instance: ${err}`);
@@ -463,7 +473,20 @@ function connectInsSSH(ip = '') {
     }).catch(err => {
         // 善后处理
         sshConn.end();
-        return Promise.reject(err);
+        if (retry < maxRetry) {
+            // 如果还没达到最大重试次数，就重试连接ssh
+            retry++;
+            outputer(1, `Retrying to make SSH connection...(${retry}/${maxRetry})`);
+            return new Promise((res) => {
+                // 3秒后重试
+                setTimeout(res, 3000);
+            }).then(res => {
+                return connectInsSSH(ip, retry);
+            });
+        } else {
+            // 实在无法连接上，reject
+            return Promise.reject(err);
+        }
     });
 }
 
@@ -554,9 +577,13 @@ function createMultiDirs(absPath) {
 
 /**
  * （异步）连接实例端（通过WebSocket）
+ * @param {Number} retry 重试次数(连接失败时重试)
  * @returns {Promise} resolve一个WebSocket连接实例
+ * @note 连接失败会reject，而不会重试
  */
-function connectInsSide() {
+function connectInsSide(retry = 0) {
+    // 最大重试连接次数
+    const maxRetry = API_CONFIGS['instance_ws_connect_retry'];
     let remoteIp = getInsDetail('instance_ip'), // 获得实例IP
         remotePort = API_CONFIGS['ins_side']['ws_port']; // 获得WebSocket端口
     return ascFs.stat(INS_TEMP_CONFIG_FILE_PATH).then(res => {
@@ -595,6 +622,19 @@ function connectInsSide() {
             console.log('Deleted local temp config file.');
             return Promise.resolve(ws);
         });
+    }).catch(err => {
+        if (retry < maxRetry) {
+            // 重试中
+            retry++;
+            outputer(2, `${err}, retrying...(${retry}/${maxRetry})`);
+            return new Promise((res) => {
+                setTimeout(res, 3000); // 3秒后重试连接
+            }).then(res => {
+                return connectInsSide(retry);
+            });
+        } else {
+            return Promise.reject(err);
+        }
     })
 }
 

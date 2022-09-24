@@ -37,6 +37,8 @@ const client = new CvmClient(CLIENT_CONFIGS);
  * 请求API以获得实例列表，并根据配置和正则表达式进行筛选
  * @param {String} outputPath 输出路径(输出未筛选的实例列表)
  * @returns {Promise} 返回Promise对象
+ * @note 最后的输出按权重从大到小排序
+ * @note 计算权重数：先把折扣价*1000，减去内网带宽*20。数值越小，权重越大
  */
 function filterInsType(outputPath = '') {
     let params = {
@@ -87,6 +89,12 @@ function filterInsType(outputPath = '') {
                     SA1 实例规格列表中，网络收发包一列的“-”表示该规格无固定的网络收发包与处理器主频性能承诺。如对性能一致性有强诉求，建议选购有性能承诺的机型。
                     来自 https://cloud.tencent.com/document/product/213/11518
                 */
+            });
+            filteredTypes.sort((former, latter) => { // 根据价格、内网带宽进行排序
+                // 计算权重数：先把折扣价*1000，减去内网带宽*20。数值越小，权重越大
+                let formerWeight = former['Price']['UnitPriceDiscount'] * 1000 - former['InstanceBandwidth'] * 20,
+                    latterWeight = latter['Price']['UnitPriceDiscount'] * 1000 - latter['InstanceBandwidth'] * 20;
+                return latterWeight - formerWeight; // 降序，这样后面直接pop就行
             });
             return Promise.resolve(filteredTypes);
         },
@@ -230,7 +238,7 @@ function elasticDelKey(keyId) {
  * 创建实例（登陆方式：密匙对）
  * @param {Array} insConfigs 实例配置数组，由filterInsType得来
  * @param {String} keyId 密匙对ID
- * @returns {Promise} 返回Promise对象
+ * @returns {Promise} 返回Promise对象, resolve内容为实例ID
  * @note 创建实例时会从insConfigs最后一个配置开始尝试，直到创建实例成功为止。当insConfigs为空数组时，创建实例失败
  */
 function createInstance(insConfigs, keyId) {
@@ -366,14 +374,44 @@ function describeInstance(insId = '') {
     );
 }
 
+/**
+ * 检查实例是否已经启动
+ * @param {String} insId 待检查的实例ID
+ * @returns {Promise<Object>} resolve一个对象，包含两个属性：running(boolean)和ip(string) 
+ * @note 如果获取IP地址失败会reject
+ * @note 实质调用的是describeInstance
+ */
+function checkInstanceState(insId) {
+    const resObj = {
+        running: false,
+        ip: ''
+    };
+    return describeInstance(insId).then(insInfo => {
+        if (insInfo['InstanceState'] === 'RUNNING') {
+            //  实例已经启动，可以进行连接
+            let pubIp = insInfo['PublicIpAddresses'][0];
+            if (!pubIp) {
+                // 实例没有绑定公网IP，reject
+                return Promise.reject('No public ip address');
+            }
+            resObj.running = true;
+            resObj.ip = pubIp;
+            return Promise.resolve(resObj);
+        } else {
+            return Promise.resolve(resObj);
+        }
+    })
+}
+
 module.exports = {
     environment: ENVIRONMENT,
-    filterInsType: filterInsType,
-    generateKey: generateKey,
-    deleteKey: deleteKey,
-    createInstance: createInstance,
-    describeInstance: describeInstance,
-    terminateInstance: terminateInstance,
-    describeKey: describeKey,
-    elasticDelKey: elasticDelKey
+    filterInsType,
+    generateKey,
+    deleteKey,
+    createInstance,
+    describeInstance,
+    checkInstanceState,
+    terminateInstance,
+    describeKey,
+    elasticDelKey,
 }

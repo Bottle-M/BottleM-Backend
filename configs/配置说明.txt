@@ -28,10 +28,11 @@ api_configs:
         - host_name 主机名
         - max_spot_price 最大竞价出价（单位：元）
     instance_run_timeout - 等待实例运行的最长时间（单位：毫秒）
-    instance_deploy_sh - BottleM实例“基地”部署的Shell脚本文件名，脚本存放在./scripts/中
-    instance_connect_retry - 连接实例的重试次数，当insSideMonitor连接实例发生错误(err)时，会至多重试这么多次
+    ssh_connect_retry - 连接实例端SSH的最多重试次数
     ssh_ready_timeout - ssh连接实例的超时时间（单位：毫秒）
     ssh_keep_alive_interval - ssh保持连接的间隔时间（单位：毫秒）
+    instance_deploy_sh - BottleM实例“基地”部署的Shell脚本文件名，脚本存放在./scripts/中
+    instance_ws_connect_retry - 连接实例端WebSocket的重试次数，当insSideMonitor连接实例发生错误(err)时，会至多重试这么多次
     tokens - 主控端token相关设置
         - default_validity - 默认token有效期（单位：毫秒）
             【默认】720000(12分钟
@@ -195,3 +196,5 @@ RCON端口一定不要在安全组中开放！仅在本地使用！不然是不�
 如果没有开启增量备份，实例被强制回收时不会进入紧急模式。
 
 为了防止每次记录日志时都要扫描整个日志目录，专门有一个.lognum文件记录日志情况，要删除日志就要一起删掉
+
+POST请求发送的是raw JSON, header的Content-Type为application/json
