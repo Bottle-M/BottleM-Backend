@@ -198,3 +198,5 @@ RCON端口一定不要在安全组中开放！仅在本地使用！不然是不�
 为了防止每次记录日志时都要扫描整个日志目录，专门有一个.lognum文件记录日志情况，要删除日志就要一起删掉
 
 POST请求发送的是raw JSON, header的Content-Type为application/json
+
+如果主控端和实例端之间的网络容易波动，建议提高ssh_connect_retry，稍微降低ssh_ready_timeout

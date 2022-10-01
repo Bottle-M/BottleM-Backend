@@ -12,7 +12,7 @@
         "instance_memory": 4,
         "instance_bandwidth": 1,
         "hour_price_range": [0, 0.2],
-        "project_id": 1269603,
+        "project_id": 1275260,
         "image_id": "img-rhstpokr",
         "system_disk": {
             "disk_type": "CLOUD_SSD",
@@ -23,7 +23,7 @@
             "subnet_id": "DEFAULT"
         },
         "max_bandwidth_out": 5,
-        "security_group_id": "sg-azrr4xvr",
+        "security_group_id": "sg-c76uww9x",
         "host_name": "bottlem",
         "max_spot_price": 0.3
     },
@@ -75,7 +75,7 @@
         },
         "rcon": {
             "port": 25575,
-            "password": "123456"
+            "password": "use_For_lOcal_rcon"
         },
         "mc_server_log": "/root/minecraft/logs/latest.log",
         "packed_server_dir": "/root/serverPacked",

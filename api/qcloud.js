@@ -403,6 +403,16 @@ function checkInstanceState(insId) {
     })
 }
 
+/**
+ * 检查竞价实例是否即将被回收
+ * @param {String} insId 实例id
+ * @returns {Promise} resolve一个布尔值，true表示即将被回收，false表示不会被回收
+ * @note 暂时直接resolve(false)，因为腾讯云没有提供API，只能在实例端请求metadata
+ */
+function checkTermination(insId) {
+    return Promise.resolve(false);
+}
+
 module.exports = {
     environment: ENVIRONMENT,
     filterInsType,
@@ -414,4 +424,5 @@ module.exports = {
     terminateInstance,
     describeKey,
     elasticDelKey,
+    checkTermination
 }

@@ -227,7 +227,11 @@ class Server {
      * @note 这是第三个环节
      */
     insSideMonitor() {
-        let that = this;
+        let that = this,
+            // 获得实例ID
+            instanceId = utils.getInsDetail('instance_id'),
+            // 用于检查竞价实例是否即将被回收的计时器
+            terminatePoller = null;
         utils.setStatus(2200); // 尝试连接实例端
         utils.setMCInfo([
             'ip', // 记录服务器ip
@@ -249,7 +253,18 @@ class Server {
                     wsHandler.revokeWS(); // 设置主连接为null
                     ws.terminate(); // 中止连接
                 }; // 清理WebSocket残留的函数，在断开连接后使用
-
+                // 轮询检查实例是否被回收
+                terminatePoller = setInterval(() => {
+                    cloud.checkTermination(instanceId).then((facingTermination) => {
+                        if (facingTermination) {
+                            // 竞价实例即将被回收！
+                            // 通知实例端紧急停服
+                            wsHandler.send(utils.buildWSReq('urgent_stop'));
+                            // 清除计时器
+                            clearInterval(terminatePoller);
+                        }
+                    });
+                }, 5000);
                 outputer(1, 'WebSocket Connected.');
                 // 擦屁股(释放实例等资源)时，要退出monitor
                 ServerEvents.once('stopmonitor', () => {
@@ -281,6 +296,8 @@ class Server {
             }).finally(() => {
                 // 移除所有擦屁股事件监听器
                 ServerEvents.removeAllListeners('stopmonitor');
+                // 移除竞价实例待回收检查器
+                clearInterval(terminatePoller);
             })
         }).then(reconnect => {
             if (reconnect) {

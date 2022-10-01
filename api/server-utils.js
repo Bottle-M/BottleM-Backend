@@ -626,7 +626,7 @@ function connectInsSide(retry = 0) {
         if (retry < maxRetry) {
             // 重试中
             retry++;
-            outputer(2, `${err}, retrying...(${retry}/${maxRetry})`);
+            outputer(2, `[WSReconnect]${err}, retrying...(${retry}/${maxRetry})`);
             return new Promise((res) => {
                 setTimeout(res, 3000); // 3秒后重试连接
             }).then(res => {

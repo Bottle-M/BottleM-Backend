@@ -163,11 +163,31 @@ const beatInterval = setInterval(() => {
 
 // Minecraft日志更新事件
 ServerEvents.on('mclogupdate', (logStr) => {
+    let clientStack = [], // 待广播的WebSocket客户端
+        logSending = false; // 是否正在发送日志
     // 向所有认证端发送日志
     mcLogServer.clients.forEach((ws) => {
-        if (ws.authorized)
-            ws.send(logStr);
+        if (ws.authorized) {
+            // 将客户端压入栈
+            clientStack.push(ws);
+        }
     });
+    let poller = setInterval(() => {
+        if (clientStack.length === 0) { // 栈空，已经发送给所有客户端
+            clearInterval(poller);
+            return;
+        }
+        if (!logSending) {
+            logSending = true; // 标记正在发送日志给一端
+            // 出栈
+            clientStack.pop().send(logStr, (err) => {
+                if (err) {
+                    outputer(2, `Error while broadcasting log to clients:${err}`);
+                }
+                logSending = false; // 标记一端发送完毕
+            });
+        }
+    }, 100);
 });
 
 // ws服务关闭时清理
