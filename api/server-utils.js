@@ -419,7 +419,6 @@ function makeInsSideConfig(addOptions = {}) {
     INITIAL_INS_SIDE_CONFIGS['env'] = Object.assign({
         'DATA_DIR': INS_DATA_DIR, // 实例端数据目录
         'PACK_DIR': INITIAL_INS_SIDE_CONFIGS['packed_server_dir'], // 服务端打包后的目录
-        'FRAGMENTS_DIR': INITIAL_INS_SIDE_CONFIGS['backup_fragments_dir'], // 增量备份碎片目录
         'MC_DIR': INITIAL_INS_SIDE_CONFIGS['mc_server_dir'] // Minecraft服务端目录
     }, cloud.environment); // cloud模块定义的环境变量（包含SECRET）
     // addOptions的配置会被加入到INITIAL_INS_SIDE_CONFIGS代表的对象中
@@ -439,55 +438,6 @@ function getSSHPrivateKey() {
     } catch (e) {
         return '';
     }
-}
-
-/**
- * （异步）连接实例并返回ssh连接对象
- * @param {String} ip 实例IP，不传入会自动读取实例配置文件
- * @param {Number} retry 当前重试次数
- * @returns {Promise} resolve一个ssh2Client对象
- * @note 如果省略ip，则会尝试获取servertemp中实例的IP
- */
-function connectInsSSH(ip = '', retry = 0) {
-    // 最多重试连接多少次
-    const maxRetry = API_CONFIGS['ssh_connect_retry'];
-    let sshConn = new ssh2Client(); // 创建ssh客户端对象
-    ip = ip ? ip : getInsDetail('instance_ip');
-    if (!ip)
-        return Promise.reject('No instance IP found.');
-    return new Promise((res, rej) => {
-        sshConn.on('ready', () => {
-            // 连接成功
-            console.log('Successfully made SSH connection.');
-            res(sshConn); // 把连接传下去
-        }).on('error', err => {
-            rej(`[SSH]Failed to connect to the instance: ${err}`);
-        }).connect({
-            host: ip,
-            port: 22,
-            username: 'root',
-            privateKey: getSSHPrivateKey(),
-            readyTimeout: API_CONFIGS['ssh_ready_timeout'],
-            keepaliveInterval: API_CONFIGS['ssh_keep_alive_interval']
-        });
-    }).catch(err => {
-        // 善后处理
-        sshConn.end();
-        if (retry < maxRetry) {
-            // 如果还没达到最大重试次数，就重试连接ssh
-            retry++;
-            outputer(1, `Retrying to make SSH connection...(${retry}/${maxRetry})`);
-            return new Promise((res) => {
-                // 3秒后重试
-                setTimeout(res, 3000);
-            }).then(res => {
-                return connectInsSSH(ip, retry);
-            });
-        } else {
-            // 实在无法连接上，reject
-            return Promise.reject(err);
-        }
-    });
 }
 
 /**
@@ -574,6 +524,56 @@ function createMultiDirs(absPath) {
         })
     });
 }
+
+/**
+ * （异步）连接实例并返回ssh连接对象
+ * @param {String} ip 实例IP，不传入会自动读取实例配置文件
+ * @param {Number} retry 当前重试次数
+ * @returns {Promise} resolve一个ssh2Client对象
+ * @note 如果省略ip，则会尝试获取servertemp中实例的IP
+ */
+function connectInsSSH(ip = '', retry = 0) {
+    // 最多重试连接多少次
+    const maxRetry = API_CONFIGS['ssh_connect_retry'];
+    let sshConn = new ssh2Client(); // 创建ssh客户端对象
+    ip = ip ? ip : getInsDetail('instance_ip');
+    if (!ip)
+        return Promise.reject('No instance IP found.');
+    return new Promise((res, rej) => {
+        sshConn.on('ready', () => {
+            // 连接成功
+            console.log('Successfully made SSH connection.');
+            res(sshConn); // 把连接传下去
+        }).on('error', err => {
+            rej(`[SSH]Failed to connect to the instance: ${err}`);
+        }).connect({
+            host: ip,
+            port: 22,
+            username: 'root',
+            privateKey: getSSHPrivateKey(),
+            readyTimeout: API_CONFIGS['ssh_ready_timeout'],
+            keepaliveInterval: API_CONFIGS['ssh_keep_alive_interval']
+        });
+    }).catch(err => {
+        // 善后处理
+        sshConn.end();
+        if (retry < maxRetry) {
+            // 如果还没达到最大重试次数，就重试连接ssh
+            retry++;
+            outputer(1, `Retrying to make SSH connection...(${retry}/${maxRetry})`);
+            return new Promise((res) => {
+                // 3秒后重试
+                setTimeout(res, 3000);
+            }).then(res => {
+                return connectInsSSH(ip, retry);
+            });
+        } else {
+            // 实在无法连接上，reject
+            return Promise.reject(err);
+        }
+    });
+}
+
 
 /**
  * （异步）连接实例端（通过WebSocket）

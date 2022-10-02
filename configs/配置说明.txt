@@ -22,7 +22,7 @@ api_configs:
         - vpc 私有网络配置（因为有的实例并不支持基础网络，这里务必使用私有网络）
             - vpc_id 私有网络ID
             - subnet_id 子网ID
-            # 全部留DEFAULT，即为默认私网
+            #dabaohu
         - max_bandwidth_out 最大出带宽（单位：Mbps）
         - security_group_id 安全组ID
         - host_name 主机名
@@ -155,7 +155,6 @@ status_codes:
 除了instance_deploy_sh外（因为受ssh配置的AcceptEnv限制），所有shell脚本执行时都有环境变量：
     DATA_DIR - 实例端数据目录，用于存放数据文件(同remote_dir)
     PACK_DIR - 打包后的服务端的目录(同packed_server_dir)
-    FRAGMENTS_DIR - 增量备份的碎片目录(同backup_fragments_dir)
     MC_DIR - Minecraft服务端的目录(同mc_server_dir)
     TIMESTAMP - 执行脚本时的毫秒级时间戳
     qcloud模块定义的环境变量：
@@ -167,7 +166,7 @@ status_codes:
         - 仅限backup和restore脚本：
             BACKUP_NAME - 提供的备份文件名，必须用上，不包括扩展名
         - 仅限discard脚本：
-            BACKUP_NAME_LIST - 提供的备份文件名列表，不包括扩展名，形如file1.txt file2.txt file3.txt
+            BACKUP_NAME_LIST - 提供的备份文件名列表，不包括扩展名，形如file1 file2 file3
 
 警告！不要使用默认项目！为Minecraft服务器单独开一个项目！
 
