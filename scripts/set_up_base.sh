@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# 本脚本不支持环境变量
+
 # 实例端下载URL
 DOWNLOAD_URL='https://gitee.com/somebottle/BottleM-InsSide/releases/download/1.3.1/BottleM-InsSide_linux_x64'
 # 实例端数据目录

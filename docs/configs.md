@@ -1,5 +1,15 @@
 # 相关配置
 
+## 目录
+
+- [简述](#简述)
+- [api_configs.json](#api_configsjson)
+    - [Shell脚本的环境变量](#shell脚本的环境变量)
+    - [需要注意的地方](#需要注意的地方)  
+- [secret_configs.json](#secret_configsjson)  
+- [status_codes.json](#status_codesjson)
+- [user_tokens.json](#user_tokensjson)
+
 ## 简述
 
 本项目的配置文件全放在`configs`目录下：
@@ -174,7 +184,7 @@
 
 注释中已经写清了配置项各自的作用，接下来提一些值得注意的地方。
 
-### 环境变量
+### Shell脚本的环境变量
 
 除了`instance_deploy_sh`配置项的脚本外，其他脚本**都有环境变量**。
 
@@ -214,3 +224,88 @@
     | 环境变量名 | 内容 |
     |:---:|:---:|
     |`BACKUP_NAME_LIST`|当前要删除的增量备份的**文件名**列表(空格分隔)，不包括扩展名|
+
+### 需要注意的地方
+
+1. 配置项`qcloud`中的`project_id`**一定一定不要**填写你腾讯云账户的**默认项目**的id！请务必自行建立新项目，不然可能会出现**默认项目**下的资源被删除的情况！
+
+    > 注：腾讯云的项目管理在**腾讯云-控制台-右上角头像-下拉菜单**这里。
+
+2. 建议使用**腾讯云子账户**进行访问控制，别忘了给子账户授予**CVM**、**COS**等服务的访问权限。
+
+3. 对于配置项`qcloud`中的`image_id`，建议采用自制镜像。在将环境全部预装好的情况下，能极大程度上提升部署速度。
+
+4. 编写部署用的`Shell`脚本时一定要注意**行尾序列**是`LF`还是`CRLF`，如果是`CRLF`可能导致脚本执行出错!  
+
+5. 实例端因Shell脚本问题导致错误后会中止部署，请**多次测试部署脚本**，保证脚本不要抛出错误。（本项目的`./scripts`下有一套现成脚本可供参考使用）
+
+6. 配置项`check_packed_server_size`不为`0`时，部署脚本（参考[`get_server.sh`](../scripts/get_server.sh)的注释）在下载压缩包并解压后**不要将其删除**了，实例端需要记录一下文件大小！  
+
+    > `check_packed_server_size`为`0`的时候，实例端程序**不会**自动删除上述压缩包，需要自行在脚本中对压缩包进行删除。
+
+7. 配置实例的安全组的时候一定要记得开放`ins_side`配置的WebSocket服务端口`ws_port`。
+
+    > **不要**在安全组中开放`RCON`端口！`RCON`端口供实例端本地访问，如果开放到公网上是有隐患的！
+
+8. 如果主控端(Backend)所处主机和实例之间的网络容易发生波动，建议提高`ssh_connect_retry`，而稍微降低`ssh_ready_timeout`。
+
+## secret_configs.json
+
+这个配置文件储存的是SECRET KEY这类敏感信息，请谨慎处置！
+
+```js
+{
+    // qcloud.js模块接受的API secretKey配置
+    "qcloud": {
+        // 可以从腾讯云控制台-访问管理-访问密匙中获取到
+        "secretId": "wejOHzhj7686RhsH887UH899S78jauydY",
+        "secretKey": "9uYhFXghHjs64He9iHgaj6HgJ3Ad54Ac"
+    }
+}
+```
+
+## status_codes.json
+
+这个配置文件主要针对**每个状态码**的对应消息进行配置，这里列出其中的一项：
+
+```js
+"2102": {
+    "msg": "Deliverying the Deploy Script of the InsSide...",
+    "inform": false
+},
+```
+
+* `msg` - 该状态码对应的消息，会在**控制台**和**日志**以及**主控端状态文件**中输出。
+* `inform` - 是否通知用户（这只是个建议用的属性，实际上可能并没有什么卵用，取决于具体实现）  
+
+## user_tokens.json
+
+用于储存用于访问主控端的**用户令牌**，这个配置文件中的令牌没有过期时间，请谨慎对待。
+
+```js
+{
+    "tokens": {
+        "moderator1": "rjoijrfuiwrjfwhfuiwhfiuewf",
+        "visitor": "sqmhuihiunuuidhe&^hunuhudw"
+    },
+    "permissions": {
+        "moderator1": [
+            // moderator1拥有所有节点的访问权限
+            "backend.*",
+            "websocket.mclog.receive",
+            "server.*"
+        ],
+        "visitor": [
+            // visitor只能访问查询Minecraft服务器状态的节点
+            "server.query.mc"
+        ]
+    }
+}
+```
+
+* `tokens` - 配置用户令牌。键为用户名，值为令牌。
+
+* `permissions` - 配置用户拥有的权限。键为用户名，值为用户拥有的权限节点组成的数组。
+
+关于节点和节点对应的权限，详见[这个文档](./node_and_permissions.md)。  
+

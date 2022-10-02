@@ -61,5 +61,7 @@ Minecraft服务器部署过程由`Bash`脚本驱动。
 
 ## 配置文件
 
+详见[配置文件文档](./docs/configs.md)。
+
 
 
