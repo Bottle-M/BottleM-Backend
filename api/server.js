@@ -202,6 +202,8 @@ class Server {
                     stream.on('close', (code, signal) => {
                         if (code === 0) {
                             outputer(1, 'Successfully deployed.');
+                            // 记录Minecraft服务器IP
+                            utils.setMCInfo('ip', that._instanceIp);
                             res('done');
                         } else {
                             rej(`Deploy Failed, code:${code}, signal:${signal}`);
@@ -234,13 +236,11 @@ class Server {
             terminatePoller = null;
         utils.setStatus(2200); // 尝试连接实例端
         utils.setMCInfo([
-            'ip', // 记录服务器ip
             'connect_time', // 记录连接时间
             'idling_time_left', // 初始化剩余空闲时间
             'players_online', // 初始化在线玩家数
             'players_max' // 初始化最大玩家数
         ], [
-            this._instanceIp,
             Date.now(),
             0,
             0,

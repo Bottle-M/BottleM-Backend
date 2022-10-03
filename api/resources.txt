@@ -26,10 +26,6 @@
     - /mc 查询Minecraft服务器状态 √
     - /backend 查询后端服务状态 √
 
-/backend/statistics 统计节点
-    - /costs 查询服务器费用
-    - /launches 启动情况
-
 /backend/token 临时api请求token生成的节点
     - /generate 生成游客访问token
         - 方式：POST，表单字段包含 validity - token有效时间(毫秒)，可以不传入
