@@ -69,7 +69,7 @@ module.exports = {
         if (TEMPORARY_TOKEN_NUM >= TOKEN_CONFIGS['max_temp_tokens_num']) {
             return [null, null, 'Max temp tokens num exceeded.'];
         }
-        if (!validity)
+        if (!validity || typeof validity !== 'number')
             validity = TOKEN_CONFIGS['default_validity'];
         const tempToken = randStr(64); // 生成64位随机字符串作为token
         const currentTime = Date.now();

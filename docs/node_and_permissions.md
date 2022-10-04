@@ -338,6 +338,30 @@ backend节点下目前只有一个子节点：
     * `generate` - 生成一个**用于游客访问**的临时令牌
     
         - 请求方法：`POST`
+        - 请求体示例（`Content-Type: application/json`）：
+
+            ```js
+            {
+                // 令牌有效期（毫秒）
+                // 如果不指定，会采用api_configs中的tokens.default_validity值
+                "validity": 10000
+            }
+            ```
+
+        - 返回示例（`Content-Type: application/json`）：
+
+            ```json
+            {
+                "data": {
+                    // 生成的令牌
+                    "token": "IKkiTZ9M6$$GDT*$qKBKpzI6BUYR2tBNqqqacaBfG687fnSPvLyYD#OCXiu*jKeX",
+                    // 令牌的失效时间（毫秒时间戳）
+                    "expiry": 1664894379530
+                },
+                "code": 1,
+                "msg": "Token Generated"
+            }
+            ```
 
     > 注：相关配置在[`api_configs.json`](configs.md#api_configsjson)的`tokens`配置项中。
 
@@ -352,6 +376,8 @@ websocket节点下目前只有一个子节点：
     <a id="mclog-receive"></a>
 
     * `receive` - 接收Minecraft服务器日志
+
+> 注：要连接主控端WebSocket以实时同步Minecraft服务器日志，用户必须要有**websocket.mclog.receive**权限。
 
 ## 权限节点
 

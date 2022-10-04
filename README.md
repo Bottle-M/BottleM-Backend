@@ -65,6 +65,8 @@ Minecraft服务器部署过程由`Bash`脚本驱动。
 
 ## 脚本与自制镜像
 
+
+
 ## 关于状态码
 
 
@@ -99,6 +101,8 @@ Minecraft服务器部署过程由`Bash`脚本驱动。
 
     > 详见文档：[访问令牌](./docs/configs.md#user_tokensjson)
 
+    访问特定的节点**需要特定的权限**，详见文档：[节点及其权限](./docs/node_and_permissions.md)
+
     ------
 
 * **请求方式**
@@ -123,3 +127,37 @@ Minecraft服务器部署过程由`Bash`脚本驱动。
 * **返回内容**
 
 * **错误信息**
+
+### 通过WebSocket同步Minecraft服务器日志
+
+主控端WebSocket服务目前只用于**实时同步Minecraft服务器的控制台日志**。
+
+值得注意的是，这里的实时同步是**增量的**，每次Minecraft服务器日志更新时，主控端这儿只会同步自上次同步以来**新增的日志内容**。
+
+如果你需要获得**自Minecraft服务器启动以来的所有日志**，建议你请求HTTP API的这个节点操作：[`/server/mc_logs/get`](./docs/node_and_permissions.md#node-mc_logs)。
+
+* **连接地址**
+
+    ```
+    ws://<主控端IP>:<WebSocket端口>
+    ```
+
+* **鉴权方式**
+
+    **建立WebSocket连接**后，向主控端发送一个包含`key`字段的`JSON`字符串，以下是示例代码：
+
+    ```javascript
+    const TOKEN = 'MY TOKEN....';
+    const ws = new WebSocket('ws://localhost:2334');
+    ws.addEventListener('open', () => {
+        console.log('connected');
+        let sendObj = {
+            key: TOKEN // 你的访问令牌
+        }
+        ws.send(JSON.stringify(sendObj));
+    });
+    ```
+
+    如果你具有`websocket.mclog.receive`权限（详见[节点及其权限](./docs/node_and_permissions.md#node-mclog)），就会正常收到来自Minecraft服务器的控制台日志。
+
+    但如果你不具有这个权限，WebSocket连接会被立刻关闭，关闭理由是`Nanoconnection, son.`。
