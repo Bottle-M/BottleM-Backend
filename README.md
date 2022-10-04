@@ -63,5 +63,63 @@ Minecraft服务器部署过程由`Bash`脚本驱动。
 
 详见[配置文件文档](./docs/configs.md)。
 
+## 脚本与自制镜像
+
+## 关于状态码
 
 
+
+## 使用
+
+### 请求HTTP API
+
+* **请求路径**形如
+
+    ```
+    http://<主控端IP>:<HTTP API端口>/<主节点>/<子节点>/<操作>
+    ```
+
+    > 主节点/子节点这些详见文档：[节点及其权限](./docs/node_and_permissions.md)  
+
+    比如我想**正常创建一个实例并部署Minecraft服务器**：
+
+    *GET* `http://<主控端IP>:<HTTP API端口>/server/normal/launch`  
+
+    -----
+
+* **鉴权方式** 
+
+    通过`Authorization`请求头进行鉴权。
+    
+    ```
+    Authorization: Bearer <token>
+    ```
+    
+    其中`<token>`是你的**访问令牌**。
+
+    > 详见文档：[访问令牌](./docs/configs.md#user_tokensjson)
+
+    ------
+
+* **请求方式**
+
+    目前主要支持的方式是`GET`, `POST`以及`OPTIONS`。  
+
+    - `OPTIONS` - 用于浏览器预检请求，直接返回`200 OK`，无任何其他操作
+    - `POST` - 有少数几个节点操作**仅支持**`POST`请求方式:  
+
+        - `/server/command/send`
+        - `/backend/token/generate`
+
+    - `GET` - 除了上述的操作外，其他所有节点操作都支持`GET`请求方式（`POST`也行）
+
+    -----
+
+* **关于*POST*请求**
+
+    - 请求头：`Content-Type: application/json`
+    - 请求体：序列化后的`JSON`字符串
+
+* **返回内容**
+
+* **错误信息**
