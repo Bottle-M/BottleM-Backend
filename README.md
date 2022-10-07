@@ -413,15 +413,42 @@ module.exports = function () {
 };
 ```
 
-### 运作方式
+### 主控端事件
 
-扩展模块的运作依赖于事件，在`informer.js`中能看到头部引入了事件模块：
+扩展模块的运作依赖于**事件**，在`informer.js`中能看到头部引入了事件模块：
 
 ```javascript
 // 导入EventEmitters
 const events = require('../basic/events');
 ```
 
+`events`对象包含两个`EventEmitter`：
+
+- `MessageEvents` - 主控端消息相关的事件
+
+    | 事件名 | callback参数 | 说明 |
+    |:---:|:---:|:---:|
+    |`statusupdate`|`(msg, inform, code)`|主控端状态码更新时触发，`msg`是状态码对应的消息，`inform`是状态码对应的消息**是否建议**通知，`code`是状态码|
+    |`normalmsg`|`(msg, inform)`|主控端输出一条**普通消息**时触发，`msg`是消息内容，`inform`是消息**是否建议**通知|
+    |`warningmsg`|`(msg, inform)`|主控端输出一条**警告消息**时触发，`msg`是消息内容，`inform`是消息**是否建议**通知|
+    |`errormsg`|`(msg, inform)`|主控端输出一条**错误消息**时触发，`msg`是消息内容，`inform`是消息**是否建议**通知|
+
+- `ServerEvents` - Minecraft服务器相关的事件
+    | 事件名 | callback参数 | 说明 |
+    |:---:|:---:|:---:|
+    |`mclogupdate`|`(logStr)`|Minecraft服务器控制台日志更新时触发，`logStr`是**新增的**日志内容|
+    |`getip`|`(ip)`|获取到实例IP地址时触发，`ip`是IP地址|
+    |`launchsuccess`|`(ip)`|Minecraft服务器成功启动后触发，`ip`是实例IP地址|
+    |`serverclosed`|`(reason)`|Minecraft服务器被关闭时触发，`reason`是关闭原因|
+
+比如我要在Minecraft成功启动（`ServerEvents`的`launchsuccess`事件）后通知群内的所有人，可以这样写：
+
+```javascript
+events.ServerEvents.on('launchsuccess', (ip) => {
+    // 假设有sendToGroup这个方法
+    sendToGroup(`Server successfully launched, ip: ${ip}`);
+});
+```
 
 
 
