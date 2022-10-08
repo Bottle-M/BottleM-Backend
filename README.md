@@ -30,8 +30,13 @@
         - [连接地址](#ws-address)  
         - [鉴权方式](#ws-authorization)
 - [扩展](#扩展)
+    - [扩展模块必须要有的](#扩展模块必须要有的)  
+    - [主控端事件](#主控端事件)  
 - [流程简述](#流程简述)
+    - [启动实例](#启动实例)  
+    - [部署实例端(InsSide)程序](#部署实例端insside程序)
 - [一些建议](#一些建议)  
+- [License](#license)  
 
 ## 面向
 
@@ -450,12 +455,168 @@ events.ServerEvents.on('launchsuccess', (ip) => {
 });
 ```
 
+## 增量备份
+
+
+
 
 
 
 ## 流程简述
 
+这里简单叙述一下一次完整的从开服到关服的流程，忽略了一些我觉得没必要讲的细节。（有兴趣的话可以看看源码）
 
+### 启动实例
+
+假设此时用户请求的节点操作是`/server/normal/launch`，那么主控端会执行以下操作：
+
+1. 主控端进入`2001`状态。请求腾讯云API，获得（选定地域中的）**所有实例的配置**，然后根据`api_configs`中的`qcloud`[配置](./docs/configs.md#api_configs)对这些实例**进行筛选**，找出符合条件的实例，组成一个**实例配置数组**。  
+
+    > 未经筛选过的**所有实例的配置**将被序列化为一个JSON文件，暂存在`server_data/all_available_ins.json`中。
+
+2. 如果这个**实例配置数组**为空，主控端会回到`2000`状态，并提示用户没有可用的实例资源。如果其不为空，进入**第3步**。
+
+3. 主控端进入`2002`状态，请求腾讯云API生成一对**SSH密匙对**，接着取得其中的**私匙**，暂存在`server_data/login.pem`文件中。  
+
+    > 同时，主控端也将这个密匙对的**唯一id**以字段名`instance_key_id`储存在`server_data/instance_details.json`文件中。
+
+4. 主控端进入`2003`状态，请求腾讯云API**创建实例**，接着取得其中的**实例id**，以字段名`instance_id`暂存在`server_data/instance_details.json`文件中。  
+
+### 部署实例端(InsSide)程序
+
+1. 主控端进入`2100`状态，通过腾讯云API**轮询**实例是否启动（进入`RUNNING`状态），如果**在规定时间内**实例启动了，进入**第2步**，否则进入错误状态`1100`（实例启动超时）。
+
+    > 规定时间指的是[`api_configs`](./docs/configs.md#api_configs)中的`instance_run_timeout`配置项。  
+
+2. 第1步中如果实例进入了`RUNNING`状态，主控端就能拿到实例的**IP地址**，并将其以字段名`instance_ip`暂存在`server_data/instance_details.json`文件中。  
+
+3. 主控端进入`2101`状态，开始尝试**通过SSH连接到实例**，如果连接成功，进入**第4步**，否则进入错误状态`1101`（SSH连接失败）。
+
+4. 主控端进入`2102`状态。接下来主控端将[`api_configs`](./docs/configs.md#api_configs)中的`ins_side`配置项单独序列化成一个JSON文件，**作为实例端程序`InsSide`的配置文件**，暂存在`server_data/ins_side_configs.tmp.json`中。  
+
+    <a id="extra-fields-for-insside"></a>
+
+    这个配置文件中还包括了额外的字段：
+
+    ```javascript
+    {
+        // 是否在维护模式下启动
+        'under_maintenance': [Boolean], 
+        // 启动后是否恢复增量备份（如果backup_records为空的话，这一项无效）
+        'restore_before_launch': [Boolean], 
+        // 备份记录数组，如果没有就是null
+        'backup_records': [Array|null],
+        // 主控端和实例端通信时鉴权用的密钥, 自动生成的128位字符串
+        'secret_key': [String],
+        // Bash脚本的公共环境变量
+        'env': [Object]
+    }
+    ```
+
+5. 主控端将`./scripts`目录下的**所有Bash脚本**和**第4步中的实例端配置文件**一起上传到实例中的**数据目录**下。  
+    如果上传失败，会进入错误状态`1102`。
+
+    > 这里的数据目录指的是[`api_configs`](./docs/configs.md#api_configs)中的`ins_side`配置项的`data_dir`字段。  
+
+6. 主控端进入`2103`状态，开始执行**部署实例端(InsSide)程序的脚本**以启动实例端。  
+    如果执行失败，会进入错误状态`1103`。
+
+    >（对应配置项：[`api_configs.ins_side.instance_deploy_sh`](./docs/configs.md#api_configs)），默认的脚本是`./scripts/set_up_base.sh`。  
+
+    > 执行这个脚本的时候**不支持**特殊的[环境变量](./docs/configs.md#shell脚本的环境变量)。  
+    > 请务必多次调试以保证这些Bash脚本都能正常执行而不是抛出错误。
+
+7. 我写好的`set_up_base.sh`脚本主要会做这几件事：  
+
+    - 创建目录`/root/BottleM-InsSide`
+
+    - 从[`Gitee Releases`](https://gitee.com/somebottle/BottleM-InsSide/releases)下载（`axel`多线程下载）最新的`InsSide`程序可执行文件到`/root/BottleM-InsSide`目录下。
+
+    - 在`screen`进程管理下执行`daemon.sh`脚本。这个脚本主要作用是**启动**`/root/BottleM-InsSide`目录下的实例端(InsSide)程序，并实现**实例端(InsSide)崩溃后的自动重启**。
+
+### 建立和实例端(InsSide)的连接
+
+1. 主控端进入`2200`状态，尝试通过配置的端口（配置项：`api_configs.ins_side.ws_port`）连接到实例端(InsSide)进程。如果成功建立WebSocket连接，进入**第2步**。  
+    如果连接超时，会进入错误状态`1200`。
+
+2. 主控端向实例端发送`status_sync`请求，实例端会返回**当前的状态码**，这样来实现与实例端的状态码同步。
+
+    > 实例端一经启动，会**立即开始**Minecraft服务器部署的工作，状态码从`2201`开始。  
+
+### 实例端(InsSide)部署Minecraft服务器
+
+从这里开始，主角就是实例端了。主控端在建立和实例端的连接后只负责**错误处理/状态码同步/用户操作传递/日志同步**等工作。  
+
+实例端的日志会通过连接回传给主控端，实例端发生错误时会通知主控端，实例端状态码发生更新时也会同步到主控端。  
+
+而用户的关服、发送命令等操作则由主控端递交给实例端执行。可见二者是相互协作的关系。  
+
+------
+
+实例端(InsSide)**一经启动**，会**立即开始**Minecraft服务器部署的工作，状态码从`2201`开始。
+
+1. 实例端进入`2202`状态，检查并创建必要的目录，如：
+    * 打包后的Minecraft服务端存放的绝对路径 - `api_configs.ins_side.packed_server_dir`
+    * Minecraft服务端的绝对路径 - `api_configs.ins_side.mc_server_dir`
+
+2. 执行所有的**Minecraft服务器部署脚本**（配置项：`api_configs.ins_side.deploy_scripts`）。  
+    在`./scripts`下有我写的两个脚本`setup_cos.sh`和`get_server.sh`，他们的作用分别是：
+
+    - `setup_cos.sh`
+    
+        配置`COSCLI`，使得其能正常访问腾讯云COS储存桶。  
+
+    - `get_server.sh`  
+
+        1. 从COS储存桶下载分块的文件列表`server/filelist.txt`  
+
+        2. 根据`filelist.txt`，从COS储存桶下载分块的Minecraft服务端压缩包文件  
+
+            > 上面两步的文件都下载到了`api_configs.ins_side.packed_server_dir`配置的目录下
+
+        3. 将分块的Minecraft服务端压缩包文件合并为一个完整的压缩包文件并**解压**到`api_configs.ins_side.mc_server_dir`配置的目录下
+
+3. 初始化增量备份  
+
+    这一步扫描了`api_configs.ins_side.incremental_backup.src_dirs`配置的**增量备份源目录**中的所有文件，记录了它们的**最新修改日期**。
+
+4. 检查是否需要恢复/丢弃增量备份
+
+    在[这里](#extra-fields-for-insside)可以看到主控端传给实例端的配置中包含了两项和增量备份有关的配置项：
+
+    - `restore_before_launch` - 是否在启动Minecraft服务器前恢复增量备份
+
+    - `backup_records` - 增量备份记录
+
+    如果`backup_records`不为空，那么实例端会根据`restore_before_launch`的值来决定在启动Minecraft服务器前如何对待增量备份：
+
+    - `restore_before_launch`为`true`时，实例端会**恢复**增量备份
+
+    - `restore_before_launch`为`'discard'`时，实例端会**抛弃**增量备份
+
+    > 如果`backup_records`为空，则`restore_before_launch`没有效果，不会对增量备份做出操作。  
+
+5. 扫描部署前服务端压缩包文件大小
+
+    如果配置项`api_configs.ins_side.check_packed_server_size`**大于0**，实例端会对**Minecraft服务端压缩包文件大小**进行**扫描和记录**。  
+
+    **第2步**中Bash脚本将Minecraft服务端文件下载到了`api_configs.ins_side.packed_server_dir`配置的目录中。
+
+    ↑ 实例端程序此时扫描的也正是这个目录中**所有文件的大小**
+
+    > 因此，如果你配置了`api_configs.ins_side.check_packed_server_size > 0`，那么在Bash脚本解压Minecraft服务端之后**不要删掉**这个目录中的内容，不然会报错：`Packed server directory is empty!`  
+    > 程序在扫描完大小后会**自动清空**这个目录。
+
+6. 执行**Minecraft服务器启动脚本**（配置项：`api_configs.ins_side.launch_script`）  
+
+    > 我写的启动脚本是`./scripts/launch_server.sh`，Minecraft服务器进程受screen进程监管。
+
+7. 轮询Minecraft服务器是否启动（通过`minecraft-protocol`包的`ping`方法）
 
 
 ## 一些建议
+
+
+## License
+
+Under [Apache-2.0 License](./LICENSE).

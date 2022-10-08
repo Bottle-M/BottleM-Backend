@@ -18,6 +18,7 @@ DATA_DIR=/root/baseData
 # 实例端可执行文件目录
 INS_EXEC_DIR=/root/BottleM-InsSide
 
+# 实例端程序执行时需要使用一个选项--data来指定数据目录
 while true;
 do
     $INS_EXEC_DIR/$INS_EXEC_FILE --data $DATA_DIR

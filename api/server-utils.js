@@ -521,6 +521,9 @@ function createMultiDirs(absPath) {
             });
         }).catch(err => {
             outputer(3, `Error occured while making dirs through SFTP: ${err}`);
+        }).finally(() => {
+            if (conn)
+                conn.end(); // 销毁SSH连接
         })
     });
 }
@@ -601,7 +604,10 @@ function connectInsSide(retry = 0) {
                             path.join(INS_DATA_DIR, INS_TEMP_CONFIG_FILE_NAME)
                         )
                     ]
-                ]);
+                ]).finally(() => {
+                    if (conn)
+                        conn.end(); // 销毁SSH连接
+                });
             })
     }).then(success => {
         // 连接实例端
