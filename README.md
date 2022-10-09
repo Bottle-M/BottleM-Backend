@@ -32,9 +32,20 @@
 - [扩展](#扩展)
     - [扩展模块必须要有的](#扩展模块必须要有的)  
     - [主控端事件](#主控端事件)  
+- [增量备份](#增量备份)
 - [流程简述](#流程简述)
     - [启动实例](#启动实例)  
     - [部署实例端(InsSide)程序](#部署实例端insside程序)
+    - [建立和实例端(InsSide)的连接](#建立和实例端insside的连接)  
+    - [实例端(InsSide)部署Minecraft服务器](#实例端insside部署minecraft服务器)
+    - [监控Minecraft服务器](#监控minecraft服务器)  
+    - [**Extra:** 主控端检查竞价实例是否即将被回收](#主控端检查竞价实例是否即将被回收)
+    - [**Extra:** 断线重连](#断线重连)  
+    - [实例端准备进入收尾流程](#实例端准备进入收尾流程)  
+    - [关闭Minecraft服务器](#关闭minecraft服务器)  
+    - [打包并上传Minecraft服务端](#打包并上传minecraft服务端)  
+    - [实例端向主控端说再见](#实例端向主控端说再见)  
+    - [主控端进行收尾工作](#主控端进行收尾工作)  
 - [一些建议](#一些建议)  
 - [License](#license)  
 
@@ -461,10 +472,7 @@ events.ServerEvents.on('launchsuccess', (ip) => {
 
 ## 增量备份
 
-
-
-
-
+详见[这个文档](./docs/incremental_backup.md)。  
 
 ## 流程简述
 
@@ -584,6 +592,8 @@ events.ServerEvents.on('launchsuccess', (ip) => {
 
         3. 将分块的Minecraft服务端压缩包文件合并为一个完整的压缩包文件并**解压**到`api_configs.ins_side.mc_server_dir`配置的目录下
 
+<a id="init-incremental-backup"></a>
+
 3. 初始化增量备份  
 
     这一步扫描了`api_configs.ins_side.incremental_backup.src_dirs`配置的**增量备份源目录**中的所有文件，记录了它们的**最新修改日期**。
@@ -672,6 +682,8 @@ Minecraft服务器成功启动后，实例端会进入`2300`状态，**启动RCO
 6. **服务器最后一位玩家下线**监听器（仅限**非维护模式**） 
 
     Minecraft服务器中最后一位玩家下线后，实例端会**恢复空闲时间计时器**。  
+
+<a id="incremental-backup-interval"></a>
 
 7. **增量备份**计时器（**如果开启了增量备份**）
 
@@ -846,6 +858,8 @@ function checkTermination(insId) {
     > 这一步也会通知主控端**删除所有的增量备份记录**，因为**第4步**中已经把**所有的服务端文件**都上传到云储存中了（相当于一次全量备份），所以**现存的增量备份**已经没有意义了。  
 
 ------
+
+<a id="urgently-end"></a>
 
 如果`urgent`为`true`（**紧急**模式）：
 
