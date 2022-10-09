@@ -75,6 +75,8 @@ Minecraft服务器部署过程由`Bash`脚本驱动。
 
 ## 基本部署
 
+注：Minecraft服务器进程**监听的端口**目前只能是`25565`。
+
 1. 将项目克隆到本地，并进入目录
 
     ```bash
@@ -90,11 +92,13 @@ Minecraft服务器部署过程由`Bash`脚本驱动。
 
 3. 自制镜像，见[下方](#自制镜像)  
 
-3. 修改/重写`./scripts/`下的部署脚本（最重要的一步）。如果你想使用我已经写好的脚本，不妨来看看[这里](#使用默认脚本)
+4. 修改/重写`./scripts/`下的部署脚本（最重要的一步），并将Minecraft服务端文件上传到云储存桶中。
 
-4. 修改配置文件（[见下方](#配置文件)）
+    > 如果你想使用我已经写好的脚本，不妨来看看[这里](#使用默认脚本)  
 
-5. 启动HTTP API和WebSocket服务
+5. 修改配置文件（[见下方](#配置文件)）
+
+6. 启动HTTP API和WebSocket服务
 
     ```bash
     npm start
@@ -492,6 +496,8 @@ events.ServerEvents.on('launchsuccess', (ip) => {
 
 3. 主控端进入`2101`状态，开始尝试**通过SSH连接到实例**，如果连接成功，进入**第4步**，否则进入错误状态`1101`（SSH连接失败）。
 
+<a id="make-insside-tmp-config"></a>
+
 4. 主控端进入`2102`状态。接下来主控端将[`api_configs`](./docs/configs.md#api_configs)中的`ins_side`配置项单独序列化成一个JSON文件，**作为实例端程序`InsSide`的配置文件**，暂存在`server_data/ins_side_configs.tmp.json`中。  
 
     <a id="extra-fields-for-insside"></a>
@@ -512,6 +518,8 @@ events.ServerEvents.on('launchsuccess', (ip) => {
         'env': [Object]
     }
     ```
+
+<a id="upload-to-data-dir"></a>
 
 5. 主控端将`./scripts`目录下的**所有Bash脚本**和**第4步中的实例端配置文件**一起上传到实例中的**数据目录**下。  
     如果上传失败，会进入错误状态`1102`。
@@ -596,6 +604,8 @@ events.ServerEvents.on('launchsuccess', (ip) => {
 
     > 如果`backup_records`为空，则`restore_before_launch`没有效果，不会对增量备份做出操作。  
 
+<a id="pre-scan-pack-size"></a>
+
 5. 扫描部署前服务端压缩包文件大小
 
     如果配置项`api_configs.ins_side.check_packed_server_size`**大于0**，实例端会对**Minecraft服务端压缩包文件大小**进行**扫描和记录**。  
@@ -611,8 +621,261 @@ events.ServerEvents.on('launchsuccess', (ip) => {
 
     > 我写的启动脚本是`./scripts/launch_server.sh`，Minecraft服务器进程受screen进程监管。
 
-7. 轮询Minecraft服务器是否启动（通过`minecraft-protocol`包的`ping`方法）
+7. 实例端进入`2203`状态，**轮询**Minecraft服务器是否启动（通过`minecraft-protocol`包的`ping`方法）。
 
+    > 如果在`api_configs.ins_side.mc_server_launch_timeout`配置的时间内启动了，就进入下一个环节。  
+    > 反之，就会报错：`Minecraft server launch timeout!`，且进入错误状态`1203`。  
+
+### 监控Minecraft服务器
+
+Minecraft服务器成功启动后，实例端会进入`2300`状态，**启动RCON连接**，并同时启动几个**定时器**/**事件监听器**：  
+
+1. Minecraft服务器**日志监听器**
+
+    实例端会监听Minecraft服务器的日志文件（配置项：`api_configs.ins_side.mc_server_log`）的**新增内容**，并将**新增的**日志内容回传给主控端。  
+
+2. Minecraft服务器**空闲时间计时器**（仅限**非维护模式**）
+
+    服务器中没有玩家游玩时，就进入了空闲状态中。  
+    
+    在Minecraft服务器空闲了一定长时间后（配置项：`api_configs.ins_side.server_idling_timeout`），实例端会**自动关闭**Minecraft服务器。  
+
+    > 每过一段时间，实例端会向主控端回传一次当前**剩余的空闲时间**（单位：秒）。
+
+    > 关闭Minecraft服务器时是**正常关闭**。
+
+3. Minecraft服务器**进程监视器**（仅限**非维护模式**）
+
+    实例端通过反复执行`api_configs.ins_side.server_scripts.check_process`配置的**Bash脚本**，来**监视Minecraft服务器进程是否存在**。  
+
+    > 如果该脚本**没有输出任何内容**，则说明**Java进程不存在**
+
+    我写的脚本是[`./scripts/check_process.sh`](./scripts/check_process.sh)，采用了`netstat`命令来找出**监听25565端口**的进程。  
+
+    > 如果进程不存在，实例端会**跳过关闭Minecraft服务器**的流程，直接进入下一个环节。
+
+4. **竞价实例回收**监视器（仅限**非维护模式**）  
+
+    实例端通过反复执行`api_configs.ins_side.server_scripts.check_termination`配置的**Bash脚本**，来**监视竞价实例是否即将被回收**。 
+
+    > 竞价实例有半途被回收的可能，需要一定的应对措施。  
+    > 如果该脚本**没有输出任何内容**，则说明**实例即将被回收**  
+
+    > 实例即将被回收时，实例端会**正常关闭Minecraft服务器**，并紧急**进行一次增量备份**。
+
+5. **玩家上线事件**监听器（仅限**非维护模式**） 
+
+    玩家上线后，实例端会**暂停**空闲时间计时器。  
+
+    > 如果`api_configs.ins_side.player_login_reset_timeout`配置为了`true`，那么玩家上线后，服务器**目前闲置的时间**也会**归零**。  
+
+6. **服务器最后一位玩家下线**监听器（仅限**非维护模式**） 
+
+    Minecraft服务器中最后一位玩家下线后，实例端会**恢复空闲时间计时器**。  
+
+7. **增量备份**计时器（**如果开启了增量备份**）
+
+    配置项`api_configs.ins_side.incremental_backup.interval`指定了每两次**增量备份**之间的**时间间隔**。  
+
+    如果开启了增量备份，实例端会**每隔这段时间**，进行一次增量备份。  
+
+    > 关于增量备份请看[这里](#增量备份)  
+
+8. **停止Minecraft服务器事件**的监听器
+
+    用户对于Minecraft服务器的**停止**操作，会由主控端递交给实例端，并在实例端以**事件**的形式被触发。  
+
+    > 这个事件一旦被触发，实例端会**正常关闭Minecraft服务器**。
+
+9. **杀死Minecraft服务器事件**的监听器
+
+    用户对于Minecraft服务器的**杀死**操作，会由主控端递交给实例端，并在实例端以**事件**的形式被触发。  
+
+    > 这个事件一旦被触发，实例端会**跳过关闭Minecraft服务器**的流程，直接打包Minecraft服务端进行上传。  
+
+10. **紧急停止Minecraft服务器事件**的监听器
+
+    这个事件仅在**竞价实例即将被回收**时被触发。  
+
+    紧急模式下，实例端仍然会**正常关闭Minecraft服务器**，但不同的是Minecraft服务器停止后，实例端**仅执行一次增量备份**并回传增量备份记录给主控端，而不会执行**完整的打包上传流程**。
+
+    > 这是因为竞价实例即将被回收时往往只剩几分钟的缓冲时间了，只能尽快进行增量备份。  
+
+11. **玩家人数**监视器
+
+    实例端会**每隔一段时间**查询Minecraft服务器中的玩家人数，并向主控端**上报**。  
+
+    > **玩家上线事件**和**服务器最后一位玩家下线**在这里被触发。
+
+### 主控端检查竞价实例是否即将被回收
+
+鉴于各服务商提供的竞价实例状态查询接口不尽相同，除了在实例端有**查询竞价实例是否被回收的脚本**，主控端也会**每隔一段时间**查询竞价实例的状态。  
+
+> 比如腾讯云查询竞价实例是否被回收需要在**实例**上请求特定的URL来获得实例的元数据，  
+> 而阿里云的实例Describe API则可以直接查询实例的状态。
+
+主控端检查竞价实例的部分写死在**对应的模块里**了，比如本项目我是和腾讯云进行对接的，就必须在[`qcloud.js`](./api/qcloud.js)内写一个`checkTermination`方法：
+
+```javascript
+/**
+ * 检查竞价实例是否即将被回收
+ * @param {String} insId 实例id
+ * @returns {Promise} resolve一个布尔值，true表示即将被回收，false表示不会被回收
+ * @note 暂时直接resolve(false)，因为腾讯云没有提供API，只能在实例端请求metadata
+ */
+function checkTermination(insId) {
+    return Promise.resolve(false);
+}
+```
+
+如果上面这个方法`resolve`了一个`true`，那么主控端会给实例端发送**紧急停止Minecraft服务器**的信号。
+
+（会触发上面的**紧急停止Minecraft服务器事件**）
+
+### 断线重连
+
+实例端和主控端通过`WebSocket`连接通信，但因为网络波动的原因，往往难以保证整个流程中连接不会断开。  
+
+每当实例端和主控端的连接断开时，**主控端会尝试重新建立连接**：
+
+1. 创建一个新的**临时配置文件**`ins_side_configs.tmp.json`，**重新生成**实例端和主控端连接鉴权用的128位密匙。  
+
+    > 本步骤可参考[这里](#make-insside-tmp-config)  
+
+2. 尝试通过SSH连接到实例，连接成功后**通过SFTP**上传`ins_side_configs.tmp.json`到实例中的[对应目录](#upload-to-data-dir)。  
+
+3. 尝试建立主控端和实例端的WebSocket连接，连接成功后**删除本地的临时配置文件**`ins_side_configs.tmp.json`。  
+
+4. 连接成功后主控端向实例端发送`status_sync`请求，实例端会返回**当前的状态码**，这样来实现与实例端的状态码同步。
+
+其中**第2步**和**第3步**是**有重试次数**的，分别对应配置项：  
+
+- `api_configs.ssh_connect_retry` - SSH连接建立重试次数
+
+- `api_configs.instance_ws_connect_retry` - 实例端WebSocket连接建立重试次数
+
+⚠ 如果**在有限的重试次数内**，主控端一直都无法连接到实例端，那么主控端会**直接进入**[收尾流程](#主控端进行收尾工作)。
+
+### 实例端准备进入收尾流程
+
+紧接[监控Minecraft服务器](#监控minecraft服务器)这一节。
+
+在接收到关闭指令后，实例端会**退出监视器**，进入**收尾阶段**，程序内对于这个阶段传递了三个字段：
+
+```javascript
+{
+    // Minecraft服务器关闭原因
+    reason: [String],
+    // 是否通过RCON向Minecraft服务器发送关闭指令并等待关闭
+    stop: [Boolean], 
+    // 是否是紧急模式
+    urgent: [Boolean]
+}
+```
+
+`stop`为`true`时往往是软停止Minecraft服务器，用于：
+
+- Minecraft服务器闲置超时，自动关闭
+- **竞价实例即将被回收**，紧急关闭
+- Minecraft服务器被用户（往往是管理员）手动关闭(stop)
+
+`stop`为`false`时往往**不会等待Minecraft服务器关闭**，用于：
+
+- Minecraft服务器**进程**已经结束
+- Minecraft服务器被用户（往往是管理员）手动**杀死**(kill)
+
+`urgent`只有在**竞价实例即将被回收**时才会为`true`。
+
+### 关闭Minecraft服务器
+
+实例端进入`2400`状态。
+
+如果`stop`为`true`，那么实例端会**通过RCON**向Minecraft服务器发送`stop`命令，然后**等待Minecraft服务器关闭**。
+
+> 等待Minecraft服务器关闭靠`api_configs.ins_side.server_scripts.check_process`配置的**Bash脚本**来实现。
+> 如果`stop`为`false`，跳过此流程。
+
+### 打包并上传Minecraft服务端
+
+实例端会先**通知主控端**：**Minecraft服务器已关闭**。
+
+然后实例端进入了`2401`状态。
+
+-------
+
+<a id="insside-end-normally"></a>
+
+接下来，如果`urgent`为`false`（非紧急模式）：
+
+1. 实例端会执行`api_configs.server_ending_scripts.pack`配置的**Bash脚本**，压缩并打包Minecraft服务端，制成压缩包文件。  
+
+    这一部分我写的脚本是[`compress_and_pack.sh`](./scripts/compress_and_pack.sh)，它主要做的事是：  
+
+    - 通过`tar`命令和`lz4`压缩程序，将Minecraft服务端打包成压缩包文件`serverAll.tar.lz4`。
+
+        > 该压缩包和下面生成的文件都存放在`api_configs.ins_side.packed_server_dir`配置的目录下。
+
+    - 将压缩包文件`serverAll.tar.lz4`按`2GB`一块分为几个文件`server_0`, `server_1`...  
+    - 删除`serverAll.tar.lz4`
+    - 扫描分块得到的所有文件的名字，**一行一条文件名**地输出到`filelist.txt`文件
+
+2. **如果**配置了`api_configs.ins_side.check_packed_server_size > 0`  
+
+    > 在 `api_configs.ins_side.check_packed_server_size <= 0` 或  
+    > **维护模式**下，会跳过这一个流程，不对打包后的文件大小进行检查。
+
+    实例端会再次扫描`api_configs.ins_side.packed_server_dir`（打包目录）配置的目录下所有的文件总大小（记为`CURR_SIZE`），并和**部署开启前**[扫描到的文件总大小](#pre-scan-pack-size)（记为`PREV_SIZE`）进行对比：  
+
+    （设`PERCENTAGE`= `api_configs.ins_side.check_packed_server_size`）
+
+    - 如果`CURR_SIZE × PERCENTAGE% <= PREV_SIZE`，这说明刚刚压缩打包制成的文件总大小**过小了**，这意味着打包过程中可能出现了问题，导致**服务端文件有一部分丢失了**！  
+
+        > 这种情况下实例端会给主控端上报错误：`There's something wrong with the compressed packs of Minecraft Server, please check it.`，主控端状态转变为`1401`。
+
+3. 实例端进入`2402`状态。
+
+4. 接下来实例端会执行`api_configs.server_ending_scripts.upload`配置的**Bash脚本**，将`api_configs.ins_side.packed_server_dir`（打包目录）目录中的文件**上传到云储存中**。  
+
+    这一部分我写的脚本是[`upload_server.sh`](./scripts/upload_server.sh)，它主要做的事是：
+
+    - 将`filelist.txt`文件上传到云储存中，作为分块文件索引
+    - 逐行读取`filelist.txt`文件，将**分成块**的压缩包文件上传到云储存中
+
+5. **如果启用**了增量备份，这一步会抛弃掉**所有现存的增量备份**。
+
+    > 这一步也会通知主控端**删除所有的增量备份记录**，因为**第4步**中已经把**所有的服务端文件**都上传到云储存中了（相当于一次全量备份），所以**现存的增量备份**已经没有意义了。  
+
+------
+
+如果`urgent`为`true`（**紧急**模式）：
+
+假使**没有开启增量备份**，整个收尾流程和[**非紧急**模式](#insside-end-normally)下的流程是一样的。  
+
+假使**开启了增量备份**，紧急模式下的流程如下：
+
+1. 实例端直接**进行一次增量备份**，并把该条增量备份记录**上报给主控端**。  
+
+没错，只有一步，够快吧！
+
+### 实例端向主控端说再见
+
+至此，实例端已经结束了所有流程，向主控端说“再见”。  
+
+> “再见”的实现方式是**以`1001`状态**关闭`WebSocket`连接，连接关闭理由是`Goodbye`。  
+
+### 主控端进行收尾工作
+
+在接收到实例端的“再见”后，主控端会进行收尾工作：
+
+1. 主控端进入`2500`状态
+
+2. 销毁当前项目下**创建的实例**
+
+3. 销毁实例对应的**SSH密匙对**
+
+4. 回到**最初的**`2000`状态
+
+至此一整个流程就走完了喵！
 
 ## 一些建议
 

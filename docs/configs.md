@@ -174,7 +174,7 @@
         "mc_server_launch_timeout": 90000,
         // Minecraft处于无人状态下的最长空闲时间，单位为毫秒
         "server_idling_timeout": 900000,
-        // 有玩家登入后，是否重置上述空闲时间
+        // 有玩家登入后，是否重置Minecraf服务器目前已经空闲了的时长
         "player_login_reset_timeout": true,
         // 最后上传压缩包前检查的压缩包大小一定要大于 **最初部署服务器时的压缩包大小** 的百分之多少
         "check_packed_server_size": 90
