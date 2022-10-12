@@ -29,7 +29,7 @@ const INS_TEMP_CONFIG_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/${
 // Minecraft服务器信息文件的绝对路径
 const MC_SERVER_INFO_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/mc_server_info.json`);
 // 增量备份文件记录数据
-const BACKUP_RECORD_FILE_NAME = 'backup_record.json';
+const BACKUP_RECORD_FILE_NAME = 'backup_records.json';
 const BACKUP_RECORD_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/${BACKUP_RECORD_FILE_NAME}`);
 // Minecraft服务器日志文件路径
 const MC_SERVER_LOG_FILE_PATH = path.join(__dirname, `../${SERVER_TEMP_DIR}/mc_latest.log`);
