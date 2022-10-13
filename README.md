@@ -614,6 +614,8 @@ events.ServerEvents.on('launchsuccess', (ip) => {
 
     > 如果`backup_records`为空，则`restore_before_launch`没有效果，不会对增量备份做出操作。  
 
+    > `backup_records`是否为空，取决于主控端的`server_data/backup_records.json`文件是否存在。
+
 <a id="pre-scan-pack-size"></a>
 
 5. 扫描部署前服务端压缩包文件大小
@@ -853,9 +855,13 @@ function checkTermination(insId) {
     - 将`filelist.txt`文件上传到云储存中，作为分块文件索引
     - 逐行读取`filelist.txt`文件，将**分成块**的压缩包文件上传到云储存中
 
-5. **如果启用**了增量备份，这一步会抛弃掉**所有现存的增量备份**。
+<a id="del-existing-backup-records"></a>
 
-    > 这一步也会通知主控端**删除所有的增量备份记录**，因为**第4步**中已经把**所有的服务端文件**都上传到云储存中了（相当于一次全量备份），所以**现存的增量备份**已经没有意义了。  
+5. **如果启用**了增量备份，这一步会抛弃掉**所有现存的增量备份**。
+    > 首先，实例端会删除所有**云储存**中的增量备份文件，  
+    > 接着实例端会通知主控端**删除所有的增量备份记录**（删除`server_data/backup_records.json`文件）。  
+    
+    > 因为**第4步**中已经把**所有的服务端文件**都上传到云储存中了（相当于一次全量备份），所以**现存的增量备份**已经没有意义了。  
 
 ------
 
@@ -875,7 +881,7 @@ function checkTermination(insId) {
 
 至此，实例端已经结束了所有流程，向主控端说“再见”。  
 
-> “再见”的实现方式是**以`1001`状态**关闭`WebSocket`连接，连接关闭理由是`Goodbye`。  
+> “再见”的实现方式是**以`1001`状态码**关闭`WebSocket`连接，连接关闭理由是`Goodbye`。  
 
 ### 主控端进行收尾工作
 
@@ -887,11 +893,14 @@ function checkTermination(insId) {
 
 3. 销毁实例对应的**SSH密匙对**
 
-4. 回到**最初的**`2000`状态
+4. **清空**主控端的`server_data`目录（实际上上面的**第1、2步**相关的文件都在这个目录下），但是`server_data/backup_records.json`**不会**被删除。
+
+5. 回到**最初的**`2000`状态
 
 至此一整个流程就走完了喵！
 
 ## 一些建议
+
 
 
 ## License

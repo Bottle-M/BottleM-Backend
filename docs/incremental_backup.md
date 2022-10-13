@@ -2,6 +2,14 @@
 
 咱在这个项目（主要是实例端InsSide）中造了个简单的增量备份轮子，以尽最大可能地保证数据安全。  
 
+## 目录
+
+- [配置](#配置)  
+- [目录结构示例](#目录结构示例)
+- [进行一次增量备份的过程](#进行一次增量备份的过程)  
+- [还原某个增量备份的过程](#还原某个增量备份的过程)  
+- [增量备份记录文件](#增量备份记录文件)  
+
 ## 配置
 
 配置项位于`api_configs.ins_side.incremental_backup`下：
@@ -85,7 +93,7 @@
                 level.dat_old
 ```
 
-## 进行一次增量备份过程
+## 进行一次增量备份的过程
 
 > 前提：在实例端启动时[进行了初始化](../README.md#init-incremental-backup)。  
 > 实际上只要`enable`设置为了`true`，就会在实例端启动时进行初始化，无需担忧。
@@ -212,4 +220,34 @@
 
     > 比如[目录结构示例](#目录结构示例)中的`/root/increments/backup_records.json`
 
-其中，主控端的记录文件起了**主要的作用**。
+其中，主控端的记录文件起了**主要的作用**：
+
+- 每当有**新的增量备份**产生，**实例端会回传备份记录给主控端**，主控端会**更新备份记录文件**。（如果文件不存在则创建）  
+
+- 在一次流程最后，Minecraft压缩包文件**如果成功传回**了对象储存，主控端会接到通知，**删除备份记录文件**`server_data/backup_records.json`。（详见[这里](../README.md#del-existing-backup-records)）
+
+- 在整个流程结束后，主控端会清理`server_data`目录（[这里](../README.md#主控端进行收尾工作)有写到），  
+
+    但是`server_data/backup_records.json`文件如果存在的话，**是不会被删除的**。
+
+    > 因此只要在服务器最后`server_data/backup_records.json`文件还存在，就说明因为某些原因，Minecraft服务器压缩包文件**没有被成功传回云储存**。  
+    > 这不，增量备份的作用就来了。
+
+- 如果用户请求`server/.../launch`节点操作（参考[这里](./node_and_permissions.md#normal-launch)）时，发现`server_data/backup_records.json`文件还存在，就会**阻止用户启动部署流程**，并返回以下提示信息：  
+
+    ```text
+    Urgent backup exists, please use action: restore_and_launch or launch_and_discard_backup
+    ```
+
+    也就是说，用户只能采用以下两种节点操作来启动部署流程：  
+
+    - `server/.../restore_and_launch` - **恢复**增量备份后启动Minecraft服务器
+
+    - `server/.../launch_and_discard_backup` - **删除**云储存中的增量备份后**通知主控端**删除`backup_records.json`文件，然后启动Minecraft服务器.
+
+------
+
+而实例端的备份记录，目前主要用于**在流程结束时删除对应的增量备份文件**。  
+
+没错，还是在[这里](../README.md#del-existing-backup-records)，在**让主控端抛弃记录文件**前，实例端首先会从**本地**的备份记录文件（比如`/root/increments/backup_records.json`）中读取备份记录，并**根据这些记录**把**云储存中的增量备份文件**给**删除掉**。  
+
