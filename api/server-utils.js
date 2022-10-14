@@ -142,14 +142,6 @@ function updateBackendStatus(keys, values) {
     return jsons.scSet(BACKEND_STATUS_FILE_PATH, keys, values);
 }
 
-/**
- * （同步）读取backend_status状态文件
- * @returns {Object|null} 如果失败会返回null
- */
-function getBackendStatus() {
-    return jsons.scRead(BACKEND_STATUS_FILE_PATH);
-}
-
 
 /**
  * （同步）根据状态代号设置状态信息
@@ -689,7 +681,6 @@ function flushCommands() {
 
 module.exports = {
     updateBackendStatus,
-    getBackendStatus,
     setStatus,
     getStatus,
     getInsDetail,

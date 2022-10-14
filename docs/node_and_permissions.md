@@ -22,10 +22,11 @@
         - [send](#command-send) `向Minecraft服务器发送命令`
     - [mc_logs](#node-mc_logs)
         - [get](#mc_logs-get) `获取Minecraft服务器日志`
+- [backend](#backend)
     - [query](#node-query) `查询......`
         - [mc](#query-mc) `Minecraft服务器状态信息`
         - [backend](#query-backend) `主控端状态信息`
-- [backend](#backend)
+        - [status_code](#query-status_code) `主控端状态码`
     - [token](#node-token)
         - [generate](#token-generate) `生成临时token`
 - [websocket](#websocket) `实例端WebSocket广播...`
@@ -269,7 +270,9 @@ server节点下有一些子节点：
                 }
                 ```
 
-            
+## backend
+
+backend节点下目前只有2个子节点：
 
 <a id="node-query"></a>
 
@@ -326,10 +329,23 @@ server节点下有一些子节点：
                 "msg": "Success."
             }
             ```
+    
+    <a id="query-status_code"></a>
+    
+    * `status_code` - 获取主控端(backend)的状态码
+    
+        - 请求方法：`GET`
+        - 返回示例（`Content-Type: application/json`）：
 
-## backend
-
-backend节点下目前只有一个子节点：
+            ```js
+            {
+                "data": {
+                    "status_code": 2000
+                },
+                "code": 1,
+                "msg": "Success."
+            }
+            ```
 
 <a id="node-token"></a>
 
@@ -352,7 +368,7 @@ backend节点下目前只有一个子节点：
 
         - 返回示例（`Content-Type: application/json`）：
 
-            ```json
+            ```javascript
             {
                 "data": {
                     // 生成的令牌
