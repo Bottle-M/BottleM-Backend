@@ -151,7 +151,7 @@ Minecraft服务器部署过程由`Bash`脚本驱动。
     - `screen` (多视窗管理)
     - `axel` (多线程下载)
     - `coscli` (腾讯云COS命令行工具，[项目地址](https://github.com/tencentyun/coscli))  
-      > 注：所在路径为`/root/coscli`
+      > 注：可执行文件路径为`/root/coscli`
 
 
 ### 使用默认脚本
@@ -901,7 +901,12 @@ function checkTermination(insId) {
 
 ## 一些建议
 
+1. 如果**主控端**和**实例**之间的网络连接波动较大，建议提高配置项`api_configs.ssh_connect_retry`的值，而**稍微降低**配置项`api_configs.ssh_ready_timeout`的值。
 
+    > 比如我主控端托管在**香港**的服务器上，但是创建的实例位于**成都**，这种情况下，我就会把`ssh_connect_retry`设置为`15`，而把`ssh_ready_timeout`设置为`15000`。  
+    > 这样**增加了重试次数**，减少了**每次重试要等待的时间**。  
+
+    > ❗ 如果重试了指定次数，主控端却仍然无法连接上实例端，那么主控端会直接进入收尾流程，详见[这里](#断线重连)。  
 
 ## License
 
